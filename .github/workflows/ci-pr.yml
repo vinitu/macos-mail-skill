@@ -21,11 +21,13 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           set -euo pipefail
-          for path in AGENTS.md LICENSE README.md SKILL.md Makefile scripts/account/list.applescript scripts/mailbox/list.applescript tests/dictionary_contract.sh tests/smoke_mail.sh; do
+          for path in AGENTS.md LICENSE README.md SKILL.md Makefile scripts/applescripts/account/list.applescript scripts/applescripts/mailbox/list.applescript scripts/commands/account/list.sh scripts/commands/mailbox/list.sh scripts/commands/message/get.sh tests/dictionary_contract.sh tests/smoke_mail.sh; do
             [ -f "$path" ] || { echo "::error::Missing $path"; exit 1; }
           done
       - run: make compile
       - run: |
-          if command -v shellcheck >/dev/null 2>&1; then shellcheck tests/*.sh; fi
+          if command -v shellcheck >/dev/null 2>&1; then
+            find tests scripts/commands -name '*.sh' -print0 | xargs -0 shellcheck
+          fi
       - run: head -1 SKILL.md | grep -q '^---' && grep -q '^name:' SKILL.md && grep -q '^description:' SKILL.md
       - run: make test
