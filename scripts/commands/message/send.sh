@@ -1,24 +1,43 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2016
 set -euo pipefail
 
+# Use absolute path to common.sh
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/commands/_lib/common.sh
 source "$SCRIPT_DIR/../_lib/common.sh"
 
-[[ $# -eq 3 ]] || { echo "Usage: $(basename "$0") <to> <subject> <body>" >&2; exit 1; }
+usage() {
+  echo "Usage: scripts/commands/message/send.sh <to> <subject> <body>" >&2
+}
 
-to_address="$1"
-subject="$2"
-body="$3"
+fail() {
+  json_fail "$1"
+  exit 1
+}
 
-capture_osascript "$APPLETS_DIR/message/send.applescript" "$to_address" "$subject" "$body" >/dev/null
-ensure_jq
-"$JQ_BIN" -nc --arg to "$to_address" --arg subject "$subject" --arg body "$body" '
-  {
-    sent: true,
-    to: $to,
-    subject: $subject,
-    body: $body
-  }
-'
+main() {
+  local to_address="${1:-}"
+  local subject="${2:-}"
+  local body="${3:-}"
+
+  require_arg "$to_address" "to" || exit 1
+  require_arg "$subject" "subject" || exit 1
+  require_arg "$body" "body" || exit 1
+
+  local script
+  script=$(require_backend_script "message" "send") || exit 1
+
+  capture_osascript "$script" "$to_address" "$subject" "$body" >/dev/null
+
+  require_jq
+  "$JQ_BIN" -nc --arg to "$to_address" --arg subject "$subject" --arg body "$body" '
+    {
+      sent: true,
+      to: $to,
+      subject: $subject,
+      body: $body
+    }
+  '
+}
+
+main "$@"

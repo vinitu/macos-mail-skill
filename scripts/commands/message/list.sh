@@ -1,25 +1,43 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Use absolute path to common.sh
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/commands/_lib/common.sh
 source "$SCRIPT_DIR/../_lib/common.sh"
 
-[[ $# -ge 2 && $# -le 3 ]] || { echo "Usage: $(basename "$0") <account-name> <mailbox-name> [limit]" >&2; exit 1; }
+usage() {
+  echo "Usage: scripts/commands/message/list.sh <account-name> <mailbox-name> [limit]" >&2
+}
 
-account_name="$1"
-mailbox_name="$2"
-limit="${3:-10}"
+fail() {
+  json_fail "$1"
+  exit 1
+}
 
-account_exists_or_error "$account_name"
-mailbox_exists_or_error "$account_name" "$mailbox_name"
-require_positive_int "limit" "$limit"
+main() {
+  local account_name="${1:-}"
+  local mailbox_name="${2:-}"
+  local limit="${3:-10}"
 
-messages_raw="$(capture_osascript "$APPLETS_DIR/message/list.applescript" "$account_name" "$mailbox_name" "$limit")"
+  require_arg "$account_name" "account-name" || exit 1
+  require_arg "$mailbox_name" "mailbox-name" || exit 1
 
-if [[ -z "$messages_raw" ]]; then
-  echo '[]'
-  exit 0
-fi
+  account_exists_or_error "$account_name"
+  mailbox_exists_or_error "$account_name" "$mailbox_name"
+  require_positive_int "limit" "$limit"
 
-printf '%s\n' "$messages_raw" | json_lines_to_array
+  local list_script
+  list_script=$(require_backend_script "message" "list") || exit 1
+
+  local messages_raw
+  messages_raw=$(capture_osascript "$list_script" "$account_name" "$mailbox_name" "$limit")
+
+  if [[ -z "$messages_raw" ]]; then
+    echo '[]'
+    return 0
+  fi
+
+  printf '%s\n' "$messages_raw" | json_lines_to_array
+}
+
+main "$@"

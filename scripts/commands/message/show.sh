@@ -1,19 +1,39 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Use absolute path to common.sh
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/commands/_lib/common.sh
 source "$SCRIPT_DIR/../_lib/common.sh"
 
-[[ $# -eq 3 ]] || { echo "Usage: $(basename "$0") <account-name> <mailbox-name> <index>" >&2; exit 1; }
+usage() {
+  echo "Usage: scripts/commands/message/show.sh <account-name> <mailbox-name> <index>" >&2
+}
 
-account_name="$1"
-mailbox_name="$2"
-index="$3"
+fail() {
+  json_fail "$1"
+  exit 1
+}
 
-account_exists_or_error "$account_name"
-mailbox_exists_or_error "$account_name" "$mailbox_name"
-require_positive_int "index" "$index"
+main() {
+  local account_name="${1:-}"
+  local mailbox_name="${2:-}"
+  local index="${3:-}"
 
-show_json="$(capture_osascript "$APPLETS_DIR/message/show.applescript" "$account_name" "$mailbox_name" "$index")"
-printf '%s' "$show_json" | normalize_json_input
+  require_arg "$account_name" "account-name" || exit 1
+  require_arg "$mailbox_name" "mailbox-name" || exit 1
+  require_arg "$index" "index" || exit 1
+
+  account_exists_or_error "$account_name"
+  mailbox_exists_or_error "$account_name" "$mailbox_name"
+  require_positive_int "index" "$index"
+
+  local show_script
+  show_script=$(require_backend_script "message" "show") || exit 1
+
+  local show_json
+  show_json=$(capture_osascript "$show_script" "$account_name" "$mailbox_name" "$index")
+
+  printf '%s' "$show_json" | normalize_json_input
+}
+
+main "$@"

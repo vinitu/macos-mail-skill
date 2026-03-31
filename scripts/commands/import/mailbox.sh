@@ -1,14 +1,29 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2016
 set -euo pipefail
 
+# Use absolute path to common.sh
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/commands/_lib/common.sh
 source "$SCRIPT_DIR/../_lib/common.sh"
 
-[[ $# -eq 1 ]] || { echo "Usage: $(basename "$0") <path>" >&2; exit 1; }
+usage() {
+  echo "Usage: scripts/commands/import/mailbox.sh <path>" >&2
+}
 
-path_value="$1"
-capture_osascript "$APPLETS_DIR/import/mailbox.applescript" "$path_value" >/dev/null
-ensure_jq
-"$JQ_BIN" -nc --arg path "$path_value" '{imported: true, path: $path}'
+fail() {
+  json_fail "$1"
+  exit 1
+}
+
+main() {
+  local path_value="${1:-}"
+  require_arg "$path_value" "path" || exit 1
+
+  local script
+  script=$(require_backend_script "import" "mailbox") || exit 1
+  capture_osascript "$script" "$path_value" >/dev/null
+
+  require_jq
+  "$JQ_BIN" -nc --arg path "$path_value" '{imported: true, path: $path}'
+}
+
+main "$@"

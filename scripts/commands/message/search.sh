@@ -1,34 +1,54 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Use absolute path to common.sh
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/commands/_lib/common.sh
 source "$SCRIPT_DIR/../_lib/common.sh"
 
-[[ $# -eq 4 ]] || { echo "Usage: $(basename "$0") <account-name> <mailbox-name> <subject_contains|sender_contains> <value>" >&2; exit 1; }
+usage() {
+  echo "Usage: scripts/commands/message/search.sh <account-name> <mailbox-name> <subject_contains|sender_contains> <value>" >&2
+}
 
-account_name="$1"
-mailbox_name="$2"
-mode="$3"
-value="$4"
+fail() {
+  json_fail "$1"
+  exit 1
+}
 
-account_exists_or_error "$account_name"
-mailbox_exists_or_error "$account_name" "$mailbox_name"
+main() {
+  local account_name="${1:-}"
+  local mailbox_name="${2:-}"
+  local mode="${3:-}"
+  local value="${4:-}"
 
-case "$mode" in
-  subject_contains|sender_contains)
-    ;;
-  *)
-    echo "Unsupported search mode: $mode" >&2
-    exit 1
-    ;;
-esac
+  require_arg "$account_name" "account-name" || exit 1
+  require_arg "$mailbox_name" "mailbox-name" || exit 1
+  require_arg "$mode" "mode" || exit 1
+  require_arg "$value" "value" || exit 1
 
-messages_raw="$(capture_osascript "$APPLETS_DIR/message/search.applescript" "$account_name" "$mailbox_name" "$mode" "$value")"
+  account_exists_or_error "$account_name"
+  mailbox_exists_or_error "$account_name" "$mailbox_name"
 
-if [[ -z "$messages_raw" ]]; then
-  echo '[]'
-  exit 0
-fi
+  case "$mode" in
+    subject_contains|sender_contains)
+      ;;
+    *)
+      fail "Unsupported search mode: $mode"
+      ;;
+  esac
 
-printf '%s\n' "$messages_raw" | json_lines_to_array
+  local script
+  script=$(require_backend_script "message" "search") || exit 1
+
+  local messages_raw
+  messages_raw="$(capture_osascript "$script" "$account_name" "$mailbox_name" "$mode" "$value")"
+
+  if [[ -z "$messages_raw" ]]; then
+    echo '[]'
+    exit 0
+  fi
+
+  printf '%s\n' "$messages_raw" | json_lines_to_array
+}
+
+main "$@"

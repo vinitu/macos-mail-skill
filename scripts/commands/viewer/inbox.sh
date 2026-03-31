@@ -1,13 +1,33 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2016
 set -euo pipefail
 
+# Use absolute path to common.sh
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/commands/_lib/common.sh
 source "$SCRIPT_DIR/../_lib/common.sh"
 
-[[ $# -eq 0 ]] || { echo "Usage: $(basename "$0")" >&2; exit 1; }
+usage() {
+  echo "Usage: scripts/commands/viewer/inbox.sh" >&2
+}
 
-mailbox_name="$(capture_osascript "$APPLETS_DIR/viewer/inbox.applescript")"
-ensure_jq
-"$JQ_BIN" -nc --arg mailbox "$mailbox_name" '{mailbox: $mailbox}'
+fail() {
+  json_fail "$1"
+  exit 1
+}
+
+main() {
+  if [[ $# -gt 0 ]]; then
+    usage
+    exit 1
+  fi
+
+  local inbox_script
+  inbox_script=$(require_backend_script "viewer" "inbox") || exit 1
+
+  local mailbox_name
+  mailbox_name="$(capture_osascript "$inbox_script")"
+
+  require_jq
+  "$JQ_BIN" -nc --arg mailbox "$mailbox_name" '{mailbox: $mailbox}'
+}
+
+main "$@"

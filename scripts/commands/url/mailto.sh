@@ -1,14 +1,31 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2016
 set -euo pipefail
 
+# Use absolute path to common.sh
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/commands/_lib/common.sh
 source "$SCRIPT_DIR/../_lib/common.sh"
 
-[[ $# -eq 1 ]] || { echo "Usage: $(basename "$0") <mailto-url>" >&2; exit 1; }
+usage() {
+  echo "Usage: scripts/commands/url/mailto.sh <mailto-url>" >&2
+}
 
-mailto_url="$1"
-capture_osascript "$APPLETS_DIR/url/mailto.applescript" "$mailto_url" >/dev/null
-ensure_jq
-"$JQ_BIN" -nc --arg url "$mailto_url" '{opened: true, url: $url}'
+fail() {
+  json_fail "$1"
+  exit 1
+}
+
+main() {
+  local mailto_url="${1:-}"
+
+  require_arg "$mailto_url" "mailto-url" || exit 1
+
+  local mailto_script
+  mailto_script=$(require_backend_script "url" "mailto") || exit 1
+
+  capture_osascript "$mailto_script" "$mailto_url" >/dev/null
+
+  require_jq
+  "$JQ_BIN" -nc --arg url "$mailto_url" '{opened: true, url: $url}'
+}
+
+main "$@"

@@ -1,40 +1,52 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2016
 set -euo pipefail
 
+# Use absolute path to common.sh
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/commands/_lib/common.sh
 source "$SCRIPT_DIR/../_lib/common.sh"
 
-[[ $# -ge 1 && $# -le 2 ]] || { echo "Usage: $(basename "$0") <account-name> [id|name]" >&2; exit 1; }
+usage() {
+  echo "Usage: scripts/commands/account/get.sh <account-name> [id|name]" >&2
+}
 
-account_name="$1"
-property="${2:-}"
+fail() {
+  json_fail "$1"
+  exit 1
+}
 
-account_exists_or_error "$account_name"
-ensure_jq
+main() {
+  local account_name="${1:-}"
+  local property="${2:-}"
 
-account_json="$("$JQ_BIN" -nc --arg id "$account_name" --arg name "$account_name" '{id: $id, name: $name}')"
+  require_arg "$account_name" "account-name" || exit 1
 
-if [[ -z "$property" ]]; then
-  printf '%s' "$account_json"
-  exit 0
-fi
+  account_exists_or_error "$account_name"
+  require_jq
 
-case "$property" in
-  id|name)
-    ;;
-  *)
-    echo "Unsupported account property: $property" >&2
-    exit 1
-    ;;
-esac
+  local account_json
+  account_json="$("$JQ_BIN" -nc --arg id "$account_name" --arg name "$account_name" '{id: $id, name: $name}')"
 
-printf '%s' "$account_json" | "$JQ_BIN" -c --arg property "$property" '
-  {
-    id: .id,
-    name: .name,
-    property: $property,
-    value: .[$property]
-  }
-'
+  if [[ -z "$property" ]]; then
+    printf '%s' "$account_json"
+    return 0
+  fi
+
+  case "$property" in
+    id|name)
+      ;;
+    *)
+      fail "Unsupported account property: $property"
+      ;;
+  esac
+
+  printf '%s' "$account_json" | "$JQ_BIN" -c --arg property "$property" '
+    {
+      id: .id,
+      name: .name,
+      property: $property,
+      value: .[$property]
+    }
+  '
+}
+
+main "$@"

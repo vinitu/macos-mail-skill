@@ -1,14 +1,32 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2016
 set -euo pipefail
 
+# Use absolute path to common.sh
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/commands/_lib/common.sh
 source "$SCRIPT_DIR/../_lib/common.sh"
 
-[[ $# -eq 1 ]] || { echo "Usage: $(basename "$0") <full-email-address>" >&2; exit 1; }
+usage() {
+  echo "Usage: scripts/commands/message/extract-address.sh <full-email-address>" >&2
+}
 
-full_address="$1"
-address_value="$(capture_osascript "$APPLETS_DIR/message/extract-address.applescript" "$full_address")"
-ensure_jq
-"$JQ_BIN" -nc --arg input "$full_address" --arg address "$address_value" '{input: $input, address: $address}'
+fail() {
+  json_fail "$1"
+  exit 1
+}
+
+main() {
+  local full_address="${1:-}"
+
+  require_arg "$full_address" "full-email-address" || exit 1
+
+  local extract_script
+  extract_script=$(require_backend_script "message" "extract-address") || exit 1
+
+  local address_value
+  address_value="$(capture_osascript "$extract_script" "$full_address")"
+
+  require_jq
+  "$JQ_BIN" -nc --arg input "$full_address" --arg address "$address_value" '{input: $input, address: $address}'
+}
+
+main "$@"

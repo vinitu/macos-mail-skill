@@ -1,25 +1,43 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2016
 set -euo pipefail
 
+# Use absolute path to common.sh
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/commands/_lib/common.sh
 source "$SCRIPT_DIR/../_lib/common.sh"
 
-[[ $# -eq 3 ]] || { echo "Usage: $(basename "$0") <account-name> <mailbox-name> <index>" >&2; exit 1; }
+usage() {
+  echo "Usage: scripts/commands/message/mark-read.sh <account-name> <mailbox-name> <index>" >&2
+}
 
-account_name="$1"
-mailbox_name="$2"
-index="$3"
+fail() {
+  json_fail "$1"
+  exit 1
+}
 
-account_exists_or_error "$account_name"
-mailbox_exists_or_error "$account_name" "$mailbox_name"
-require_positive_int "index" "$index"
+main() {
+  local account_name="${1:-}"
+  local mailbox_name="${2:-}"
+  local index="${3:-}"
 
-capture_osascript "$APPLETS_DIR/message/mark-read.applescript" "$account_name" "$mailbox_name" "$index" >/dev/null
-ensure_jq
-"$JQ_BIN" -nc \
-  --arg account "$account_name" \
-  --arg mailbox "$mailbox_name" \
-  --argjson index "$index" \
-  '{updated: true, read: true, account: $account, mailbox: $mailbox, index: $index}'
+  require_arg "$account_name" "account-name" || exit 1
+  require_arg "$mailbox_name" "mailbox-name" || exit 1
+  require_arg "$index" "index" || exit 1
+
+  account_exists_or_error "$account_name"
+  mailbox_exists_or_error "$account_name" "$mailbox_name"
+  require_positive_int "index" "$index"
+
+  local mark_read_script
+  mark_read_script=$(require_backend_script "message" "mark-read") || exit 1
+
+  capture_osascript "$mark_read_script" "$account_name" "$mailbox_name" "$index" >/dev/null
+
+  require_jq
+  "$JQ_BIN" -nc \
+    --arg account "$account_name" \
+    --arg mailbox "$mailbox_name" \
+    --argjson index "$index" \
+    '{updated: true, read: true, account: $account, mailbox: $mailbox, index: $index}'
+}
+
+main "$@"
