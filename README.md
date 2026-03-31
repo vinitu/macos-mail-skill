@@ -1,6 +1,16 @@
 # macOS Mail Skill
 
-This repo stores a skill for Apple Mail.app integration on macOS via AppleScript.
+This repository provides a skill for Apple Mail.app integration on macOS via AppleScript.
+
+## Overview
+- Public interface: `scripts/commands`
+- Internal backend: `scripts/applescripts`
+- Output: JSON by default
+
+## Goal
+- Provide an accurate and stable public command layer for Mail.app.
+- Return structured JSON for all read and write operations.
+- Treat email data as private user data and ensure safety boundaries.
 
 ## Installation
 
@@ -8,14 +18,7 @@ This repo stores a skill for Apple Mail.app integration on macOS via AppleScript
 npx skills add vinitu/macos-mail-skill
 ```
 
-Or with [skills.sh](https://skills.sh):
-
-```bash
-skills.sh add vinitu/macos-mail-skill
-```
-
 ## Scope
-
 - List accounts and mailboxes configured in Mail.app.
 - Read messages with structured JSON output.
 - Show a message in the Mail.app window.
@@ -24,39 +27,26 @@ skills.sh add vinitu/macos-mail-skill
 - Move, delete, flag, and mark messages.
 
 ## Prerequisites
-
 - macOS 12+ with Mail.app configured and signed in
 - Automation permission granted to your terminal app
 - `jq`
-- (Optional) Full Disk Access for SQLite-based search
 
 ## How To Use
-
 Run the public command wrappers from the repo root or from the installed skill path.
 Do not call `scripts/applescripts` directly.
 
 ```bash
 # List all Mail accounts
 scripts/commands/account/list.sh
+# Get default account
+scripts/commands/account/default.sh
 # List mailboxes in account "iCloud"
 scripts/commands/mailbox/list.sh "iCloud"
-# Count messages in INBOX
-scripts/commands/mailbox/count.sh "iCloud" "INBOX"
 # List recent messages
 scripts/commands/message/list.sh "iCloud" "INBOX" 5
-# Read one message
-scripts/commands/message/get.sh "iCloud" "INBOX" 1
-# Show one message in Mail.app
-scripts/commands/message/show.sh "iCloud" "INBOX" 1
-# Create draft (does not send)
-scripts/commands/message/create.sh "someone@example.com" "Hello" "Draft body here" false
 ```
 
-All public commands return JSON by default.
-For the full command set and examples, see `SKILL.md`.
-
 ## Public Interface
-
 - `scripts/commands/account/*`
 - `scripts/commands/mailbox/*`
 - `scripts/commands/message/*`
@@ -65,13 +55,17 @@ For the full command set and examples, see `SKILL.md`.
 - `scripts/commands/import/mailbox.sh`
 - `scripts/commands/url/mailto.sh`
 
-## Troubleshooting
+## Validation
+After making changes, run these commands to ensure everything is correct:
+- `make check`: Verify dependencies (Mail.app, `jq`).
+- `make compile`: Syntax check for all AppleScript files.
+- `make lint`: Run shellcheck on all shell scripts.
+- `make test`: Run all contract and smoke tests.
 
+## Troubleshooting
 | Issue | Solution |
 |-------|----------|
 | "not authorized" error | Grant Automation permission to terminal in System Settings |
-| Mail.app not responding | Ensure Mail.app is running; launch with `open -a Mail` |
+| Mail.app not responding | Ensure Mail.app is running; launch with `open -a Mail |
 | Account not found | Check account name with `scripts/commands/account/list.sh` |
-| Mailbox not found | Check mailbox name with `scripts/commands/mailbox/list.sh "ACCOUNT"` |
 | `jq is required` | Install `jq` and ensure it is in `PATH` |
-| Slow searches | Limit result count or use SQLite-based `apple-mail-search` skill |

@@ -46,6 +46,7 @@ make check
 List accounts and check mail:
 ```bash
 scripts/commands/account/list.sh
+scripts/commands/account/default.sh
 scripts/commands/account/get.sh "iCloud" name
 scripts/commands/account/exists.sh "iCloud"
 scripts/commands/account/check-mail.sh
