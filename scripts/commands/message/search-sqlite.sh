@@ -40,10 +40,11 @@ main() {
     fail "No read permission for $db_path. Please grant Full Disk Access to your terminal."
   fi
 
-  # Optimized READ-ONLY query to fetch message summaries with correct joins
+  # READ-ONLY query with message_id_header to link with AppleScript
   local sql="
 SELECT 
     m.ROWID as id,
+    mgd.message_id_header as message_id,
     s.subject as subject,
     a.address as sender,
     datetime(m.date_received + 978307200, 'unixepoch') as date_received,
@@ -54,6 +55,7 @@ FROM messages m
 JOIN addresses a ON m.sender = a.ROWID
 JOIN subjects s ON m.subject = s.ROWID
 JOIN mailboxes mb ON m.mailbox = mb.ROWID
+LEFT JOIN message_global_data mgd ON m.message_id = mgd.message_id
 WHERE s.subject LIKE '%${query}%' OR a.address LIKE '%${query}%'
 ORDER BY m.date_received DESC
 LIMIT ${limit};
