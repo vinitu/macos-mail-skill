@@ -39,7 +39,9 @@ main() {
   while IFS= read -r mailbox_name; do
     [[ -n "$mailbox_name" ]] || continue
     local count_raw
-    count_raw="$(capture_osascript "$count_script" "$account_name" "$mailbox_name")"
+    if ! count_raw="$(capture_osascript "$count_script" "$account_name" "$mailbox_name" 2>/dev/null)"; then
+      count_raw=0
+    fi
     local mailbox_json
     mailbox_json="$("$JQ_BIN" -nc \
       --arg id "${account_name}/${mailbox_name}" \

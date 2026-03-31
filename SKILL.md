@@ -67,6 +67,8 @@ Read and search:
 scripts/commands/message/list.sh "iCloud" "INBOX" 5
 scripts/commands/message/get.sh "iCloud" "INBOX" 1
 scripts/commands/message/search.sh "iCloud" "INBOX" subject_contains "invoice"
+# Faster SQLite search for subject or sender:
+scripts/commands/message/search-sqlite.sh "invoice" 10
 ```
 
 Compose and organize:

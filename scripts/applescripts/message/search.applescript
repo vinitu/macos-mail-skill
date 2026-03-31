@@ -1,68 +1,80 @@
--- Search messages in mailbox. argv: account mailbox subject_contains|sender_contains value
+-- Search messages in mailbox. argv: account mailbox search_mode value
 on run argv
-	if (count of argv) < 4 then error "Usage: search.applescript <account> <mailbox> <subject_contains|sender_contains> <value>"
+	if (count of argv) < 4 then error "Usage: search.applescript <account> <mailbox> <search_mode> <value>"
 	set accName to item 1 of argv
 	set mbName to item 2 of argv
-	set searchType to item 3 of argv
+	set searchMode to item 3 of argv
 	set searchVal to item 4 of argv
 
 	tell application "Mail"
-		set mb to mailbox mbName of account accName
-		set msgList to every message of mb
+		try
+			set mb to mailbox mbName of account accName
+		on error
+			error "Mailbox not found: " & mbName & " in account " & accName
+		end try
+
 		set output to ""
 		set firstMatch to true
-		repeat with messageIndex from 1 to count of msgList
-			set msgRecord to contents of item messageIndex of msgList
-			if my matchesSearch(msgRecord, searchType, searchVal) then
-				if firstMatch is false then set output to output & linefeed
-				set output to output & my messageSummaryJson(msgRecord, accName, mbName, messageIndex)
-				set firstMatch to false
-			end if
+		set totalCount to count of messages of mb
+		
+		set matchCount to 0
+		-- Search in chunks from most recent
+		set chunkSize to 500
+		set currentBatchEnd to totalCount
+		
+		repeat while currentBatchEnd > 0 and matchCount < 20
+			set currentBatchStart to currentBatchEnd - chunkSize + 1
+			if currentBatchStart < 1 then set currentBatchStart to 1
+			
+			set batchMsgs to messages currentBatchStart through currentBatchEnd of mb
+			
+			-- Process batch backwards
+			repeat with i from (count of batchMsgs) to 1 by -1
+				set msgRecord to item i of batchMsgs
+				set absoluteIndex to currentBatchStart + i - 1
+				set isMatch to false
+				if searchMode is "subject_contains" then
+					if subject of msgRecord contains searchVal then set isMatch to true
+				else if searchMode is "sender_contains" then
+					if sender of msgRecord contains searchVal then set isMatch to true
+				end if
+				
+				if isMatch then
+					if firstMatch is false then set output to output & linefeed
+					set output to output & my messageSummaryJson(msgRecord, accName, mbName, absoluteIndex)
+					set firstMatch to false
+					set matchCount to matchCount + 1
+					if matchCount ≥ 20 then exit repeat
+				end if
+			end repeat
+			
+			set currentBatchEnd to currentBatchStart - 1
 		end repeat
+		
 		return output
 	end tell
 end run
 
-on matchesSearch(msgRecord, searchType, searchVal)
-	if searchType is "subject_contains" then
-		return subject of msgRecord contains searchVal
-	else if searchType is "sender_contains" then
-		return sender of msgRecord contains searchVal
-	end if
-
-	error "Unknown search type: " & searchType
-end matchesSearch
-
 on messageSummaryJson(msgRecord, accName, mbName, messageIndex)
-	set identityValue to my messageIdentity(msgRecord, accName, mbName, messageIndex)
 	using terms from application "Mail"
 		set subjectValue to subject of msgRecord as text
 		set senderValue to sender of msgRecord as text
 		set rawDateReceivedValue to (date received of msgRecord)
 		set rawReadValue to (read status of msgRecord)
 		set rawFlaggedValue to (flagged status of msgRecord)
+		set identityValue to (message id of msgRecord) as text
 	end using terms from
+
+	if identityValue is "" then
+		set identityValue to accName & "/" & mbName & "/" & (messageIndex as text)
+	end if
+
 	set dateReceivedValue to my jsonNullable(rawDateReceivedValue)
 	set readValue to my jsonBoolean(rawReadValue)
 	set flaggedValue to my jsonBoolean(rawFlaggedValue)
 
 	return "{" & "\"id\":" & my jsonString(identityValue) & "," & "\"account\":" & my jsonString(accName) & "," & "\"mailbox\":" & my jsonString(mbName) & "," & "\"index\":" & (messageIndex as text) & "," & "\"subject\":" & my jsonString(subjectValue) & "," & "\"sender\":" & my jsonString(senderValue) & "," & "\"date_received\":" & dateReceivedValue & "," & "\"read\":" & readValue & "," & "\"flagged\":" & flaggedValue & "}"
 end messageSummaryJson
-
-on messageIdentity(msgRecord, accName, mbName, messageIndex)
-	set messageIdValue to ""
-	using terms from application "Mail"
-		try
-			set messageIdValue to message id of msgRecord as text
-		end try
-	end using terms from
-
-	if messageIdValue is "" then
-		return accName & "/" & mbName & "/" & messageIndex
-	end if
-
-	return messageIdValue
-end messageIdentity
 
 on jsonNullable(valueValue)
 	if valueValue is missing value then return "null"

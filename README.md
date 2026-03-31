@@ -42,14 +42,16 @@ scripts/commands/account/list.sh
 scripts/commands/account/default.sh
 # List mailboxes in account "iCloud"
 scripts/commands/mailbox/list.sh "iCloud"
-# List recent messages
+# Search messages using SQLite (fast)
+scripts/commands/message/search-sqlite.sh "invoice" 10
+# List recent messages (AppleScript)
 scripts/commands/message/list.sh "iCloud" "INBOX" 5
 ```
 
 ## Public Interface
 - `scripts/commands/account/*`
 - `scripts/commands/mailbox/*`
-- `scripts/commands/message/*`
+- `scripts/commands/message/*` (including `search-sqlite.sh`)
 - `scripts/commands/signature/list.sh`
 - `scripts/commands/viewer/inbox.sh`
 - `scripts/commands/import/mailbox.sh`
