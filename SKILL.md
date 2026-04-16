@@ -79,7 +79,7 @@ Create, send, and reply:
 ```bash
 scripts/commands/message/create.sh "person@example.com" "Hello" "Draft body" false
 scripts/commands/message/send.sh "person@example.com" "Hello" "Ready to send"
-scripts/commands/message/reply.sh "iCloud" "INBOX" 1 "Thanks for your message."
+scripts/commands/message/reply.sh "iCloud" "INBOX" 1 "Thanks for your message."  # creates a draft, does not send
 scripts/commands/message/forward.sh "iCloud" "INBOX" 1
 ```
 

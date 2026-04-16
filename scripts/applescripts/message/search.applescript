@@ -24,11 +24,13 @@ on run argv
 end run
 
 on matchesSearch(msgRecord, searchType, searchVal)
-	if searchType is "subject_contains" then
-		return subject of msgRecord contains searchVal
-	else if searchType is "sender_contains" then
-		return sender of msgRecord contains searchVal
-	end if
+	using terms from application "Mail"
+		if searchType is "subject_contains" then
+			return subject of msgRecord contains searchVal
+		else if searchType is "sender_contains" then
+			return sender of msgRecord contains searchVal
+		end if
+	end using terms from
 
 	error "Unknown search type: " & searchType
 end matchesSearch

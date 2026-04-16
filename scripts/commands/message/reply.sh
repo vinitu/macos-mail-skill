@@ -24,4 +24,4 @@ ensure_jq
   --arg mailbox "$mailbox_name" \
   --argjson index "$index" \
   --arg body "$reply_body" \
-  '{sent: true, account: $account, mailbox: $mailbox, index: $index, body: $body}'
+  '{created: true, account: $account, mailbox: $mailbox, index: $index, body: $body}'
