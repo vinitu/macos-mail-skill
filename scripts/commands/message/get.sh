@@ -6,16 +6,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/commands/_lib/common.sh
 source "$SCRIPT_DIR/../_lib/common.sh"
 
-[[ $# -ge 3 && $# -le 4 ]] || { echo "Usage: $(basename "$0") <account-name> <mailbox-name> <index> [property]" >&2; exit 1; }
+[[ $# -ge 3 && $# -le 4 ]] || { echo "Usage: $(basename "$0") <account-name> <mailbox-name> <message-id> [property]" >&2; exit 1; }
 
 account_name="$1"
 mailbox_name="$2"
-index="$3"
+message_id="$3"
 property="${4:-}"
 
 account_exists_or_error "$account_name"
 mailbox_exists_or_error "$account_name" "$mailbox_name"
-require_positive_int "index" "$index"
+index="$(resolve_index "$account_name" "$mailbox_name" "$message_id")"
 
 message_json="$(capture_osascript "$APPLETS_DIR/message/get.applescript" "$account_name" "$mailbox_name" "$index")"
 ensure_jq

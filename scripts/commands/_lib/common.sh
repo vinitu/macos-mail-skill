@@ -62,6 +62,26 @@ require_positive_int() {
   }
 }
 
+# resolve_index <account> <mailbox> <message-id>
+# Resolves a message-id to the current numeric index in the mailbox via AppleScript.
+# Exits with an error if the message is not found.
+resolve_index() {
+  local account_name="$1"
+  local mailbox_name="$2"
+  local message_id="$3"
+
+  local resolved
+  resolved="$(capture_osascript "$APPLETS_DIR/message/find-index.applescript" \
+    "$account_name" "$mailbox_name" "$message_id")"
+
+  [[ "$resolved" =~ ^[0-9]+$ ]] || {
+    echo "Message not found: $message_id" >&2
+    exit 1
+  }
+
+  printf '%s' "$resolved"
+}
+
 account_names_raw() {
   capture_osascript "$APPLETS_DIR/account/list.applescript"
 }

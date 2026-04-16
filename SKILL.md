@@ -62,21 +62,34 @@ scripts/commands/mailbox/exists.sh "iCloud" "INBOX"
 
 ## Messages
 
+Messages are identified by **message-id** — a stable unique string returned in the `id` field of every search or list result. Unlike numeric indices, message-ids do not shift when new mail arrives.
+
 Read and search:
 
 ```bash
 scripts/commands/message/list.sh "iCloud" "INBOX" 5
-scripts/commands/message/get.sh "iCloud" "INBOX" 1
-scripts/commands/message/get.sh "iCloud" "INBOX" 1 subject
-scripts/commands/message/show.sh "iCloud" "INBOX" 1
+scripts/commands/message/get.sh "iCloud" "INBOX" "<msg-id@example.com>"
+scripts/commands/message/get.sh "iCloud" "INBOX" "<msg-id@example.com>" subject
+scripts/commands/message/show.sh "iCloud" "INBOX" "<msg-id@example.com>"
 scripts/commands/message/search.sh "iCloud" "INBOX" subject_contains "invoice"
 scripts/commands/message/search.sh "iCloud" "INBOX" sender_contains "john@example.com"
 scripts/commands/message/search-global.sh sender_contains "john"
 scripts/commands/message/search-global.sh subject_contains "invoice" 20
-scripts/commands/message/exists.sh "iCloud" "INBOX" 1
+scripts/commands/message/exists.sh "iCloud" "INBOX" "<msg-id@example.com>"
 ```
 
 `search-global.sh` searches across **all accounts and mailboxes** using the local Mail database (SQLite). It is much faster than `search.sh` and does not require specifying an account or mailbox. Use it when you don't know which account or mailbox contains the message, or when you want to search everywhere at once. Default limit is 50.
+
+Typical workflow — search then act:
+
+```bash
+result=$(scripts/commands/message/search-global.sh sender_contains "john@example.com")
+id=$(echo "$result" | jq -r '.[0].id')
+account=$(echo "$result" | jq -r '.[0].account')
+mailbox=$(echo "$result" | jq -r '.[0].mailbox')
+scripts/commands/message/get.sh "$account" "$mailbox" "$id" content
+scripts/commands/message/reply.sh "$account" "$mailbox" "$id" "Thanks!"
+```
 
 Create, send, and reply:
 
@@ -84,20 +97,20 @@ Create, send, and reply:
 scripts/commands/message/create.sh "iCloud" "person@example.com" "Hello" "Draft body"         # visible by default
 scripts/commands/message/create.sh "iCloud" "person@example.com" "Hello" "Draft body" false   # hidden draft
 scripts/commands/message/send.sh "person@example.com" "Hello" "Ready to send"
-scripts/commands/message/reply.sh "iCloud" "INBOX" 1 "Thanks for your message."               # visible by default, uses original account
-scripts/commands/message/reply.sh "iCloud" "INBOX" 1 "Thanks for your message." false         # hidden draft
-scripts/commands/message/forward.sh "iCloud" "INBOX" 1
+scripts/commands/message/reply.sh "iCloud" "INBOX" "<msg-id@example.com>" "Thanks for your message."        # visible by default
+scripts/commands/message/reply.sh "iCloud" "INBOX" "<msg-id@example.com>" "Thanks for your message." false  # hidden draft
+scripts/commands/message/forward.sh "iCloud" "INBOX" "<msg-id@example.com>"
 ```
 
 Organise:
 
 ```bash
-scripts/commands/message/move.sh "iCloud" "INBOX" 1 "Archive"
-scripts/commands/message/delete.sh "iCloud" "INBOX" 1
-scripts/commands/message/mark-read.sh "iCloud" "INBOX" 1
-scripts/commands/message/mark-unread.sh "iCloud" "INBOX" 1
-scripts/commands/message/flag.sh "iCloud" "INBOX" 1
-scripts/commands/message/unflag.sh "iCloud" "INBOX" 1
+scripts/commands/message/move.sh "iCloud" "INBOX" "<msg-id@example.com>" "Archive"
+scripts/commands/message/delete.sh "iCloud" "INBOX" "<msg-id@example.com>"
+scripts/commands/message/mark-read.sh "iCloud" "INBOX" "<msg-id@example.com>"
+scripts/commands/message/mark-unread.sh "iCloud" "INBOX" "<msg-id@example.com>"
+scripts/commands/message/flag.sh "iCloud" "INBOX" "<msg-id@example.com>"
+scripts/commands/message/unflag.sh "iCloud" "INBOX" "<msg-id@example.com>"
 ```
 
 Address parsing:
