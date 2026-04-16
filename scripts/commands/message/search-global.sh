@@ -43,9 +43,18 @@ else
 fi
 
 # Query SQLite — output raw rows using unit separator (0x1F) to avoid conflicts
+# CTE ranks ALL messages per mailbox (DESC = newest first, matching Mail.app UI order),
+# then filters to matching rows so the index reflects the true position in the mailbox.
 rows="$(sqlite3 "$DB" \
   -separator $'\x1f' \
-  "SELECT
+  "WITH ranked AS (
+     SELECT
+       ROWID,
+       CAST(ROW_NUMBER() OVER (PARTITION BY mailbox ORDER BY date_received DESC) AS TEXT) AS idx
+     FROM messages
+     WHERE deleted = 0
+   )
+   SELECT
      COALESCE(mgd.message_id_header, CAST(m.ROWID AS TEXT)),
      sub.subject,
      addr.address,
@@ -54,8 +63,9 @@ rows="$(sqlite3 "$DB" \
      m.date_received,
      m.read,
      m.flagged,
-     CAST(ROW_NUMBER() OVER (PARTITION BY m.mailbox ORDER BY m.date_received ASC) AS TEXT)
+     r.idx
    FROM messages m
+   JOIN ranked r ON r.ROWID = m.ROWID
    JOIN subjects sub ON m.subject = sub.ROWID
    JOIN addresses addr ON m.sender = addr.ROWID
    JOIN mailboxes mb ON m.mailbox = mb.ROWID
