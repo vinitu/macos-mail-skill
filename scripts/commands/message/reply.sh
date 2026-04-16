@@ -6,17 +6,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/commands/_lib/common.sh
 source "$SCRIPT_DIR/../_lib/common.sh"
 
-[[ $# -ge 4 && $# -le 5 ]] || { echo "Usage: $(basename "$0") <account-name> <mailbox-name> <index> <reply-body> [visible]" >&2; exit 1; }
+[[ $# -ge 4 && $# -le 5 ]] || { echo "Usage: $(basename "$0") <account-name> <mailbox-name> <message-id> <reply-body> [visible]" >&2; exit 1; }
 
 account_name="$1"
 mailbox_name="$2"
-index="$3"
+message_id="$3"
 reply_body="$4"
 visible="${5:-true}"
 
 account_exists_or_error "$account_name"
 mailbox_exists_or_error "$account_name" "$mailbox_name"
-require_positive_int "index" "$index"
+index="$(resolve_index "$account_name" "$mailbox_name" "$message_id")"
 
 case "$visible" in
   true|false|1|0)
