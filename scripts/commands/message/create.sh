@@ -6,12 +6,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/commands/_lib/common.sh
 source "$SCRIPT_DIR/../_lib/common.sh"
 
-[[ $# -ge 3 && $# -le 4 ]] || { echo "Usage: $(basename "$0") <to> <subject> <body> [visible]" >&2; exit 1; }
+[[ $# -ge 4 && $# -le 5 ]] || { echo "Usage: $(basename "$0") <account> <to> <subject> <body> [visible]" >&2; exit 1; }
 
-to_address="$1"
-subject="$2"
-body="$3"
-visible="${4:-true}"
+account_name="$1"
+to_address="$2"
+subject="$3"
+body="$4"
+visible="${5:-true}"
+
+account_exists_or_error "$account_name"
 
 case "$visible" in
   true|false|1|0)
@@ -22,15 +25,17 @@ case "$visible" in
     ;;
 esac
 
-capture_osascript "$APPLETS_DIR/message/create.applescript" "$to_address" "$subject" "$body" "$visible" >/dev/null
+capture_osascript "$APPLETS_DIR/message/create.applescript" "$account_name" "$to_address" "$subject" "$body" "$visible" >/dev/null
 ensure_jq
 "$JQ_BIN" -nc \
+  --arg account "$account_name" \
   --arg to "$to_address" \
   --arg subject "$subject" \
   --arg body "$body" \
   --arg visible "$visible" '
   {
     created: true,
+    account: $account,
     to: $to,
     subject: $subject,
     body: $body,

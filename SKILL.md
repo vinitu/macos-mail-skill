@@ -77,9 +77,11 @@ scripts/commands/message/exists.sh "iCloud" "INBOX" 1
 Create, send, and reply:
 
 ```bash
-scripts/commands/message/create.sh "person@example.com" "Hello" "Draft body" false
+scripts/commands/message/create.sh "iCloud" "person@example.com" "Hello" "Draft body"         # visible by default
+scripts/commands/message/create.sh "iCloud" "person@example.com" "Hello" "Draft body" false   # hidden draft
 scripts/commands/message/send.sh "person@example.com" "Hello" "Ready to send"
-scripts/commands/message/reply.sh "iCloud" "INBOX" 1 "Thanks for your message."  # creates a draft, does not send
+scripts/commands/message/reply.sh "iCloud" "INBOX" 1 "Thanks for your message."               # visible by default, uses original account
+scripts/commands/message/reply.sh "iCloud" "INBOX" 1 "Thanks for your message." false         # hidden draft
 scripts/commands/message/forward.sh "iCloud" "INBOX" 1
 ```
 
