@@ -7,7 +7,11 @@ on run argv
 	set mbName to item 2 of argv
 
 	tell application "Mail"
-		set n to count of messages of mailbox mbName of account accName
-		return n as text
+		try
+			set n to count of messages of mailbox mbName of account accName
+			return n as text
+		on error
+			return "0"
+		end try
 	end tell
 end run

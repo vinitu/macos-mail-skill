@@ -10,9 +10,9 @@ on run argv
 
 	tell application "Mail"
 		set m to message idx of mailbox mbName of account accName
-		set replyMsg to reply m
+		set replyMsg to reply m with opening window
 		set content of replyMsg to replyBody
-		send replyMsg
+		set visible of replyMsg to false
 	end tell
-	return "sent"
+	return "draft created"
 end run
