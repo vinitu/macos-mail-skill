@@ -71,8 +71,12 @@ scripts/commands/message/get.sh "iCloud" "INBOX" 1 subject
 scripts/commands/message/show.sh "iCloud" "INBOX" 1
 scripts/commands/message/search.sh "iCloud" "INBOX" subject_contains "invoice"
 scripts/commands/message/search.sh "iCloud" "INBOX" sender_contains "john@example.com"
+scripts/commands/message/search-global.sh sender_contains "john"
+scripts/commands/message/search-global.sh subject_contains "invoice" 20
 scripts/commands/message/exists.sh "iCloud" "INBOX" 1
 ```
+
+`search-global.sh` searches across **all accounts and mailboxes** using the local Mail database (SQLite). It is much faster than `search.sh` and does not require specifying an account or mailbox. Use it when you don't know which account or mailbox contains the message, or when you want to search everywhere at once. Default limit is 50.
 
 Create, send, and reply:
 
