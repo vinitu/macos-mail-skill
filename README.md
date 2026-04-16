@@ -74,4 +74,4 @@ For the full command set and examples, see `SKILL.md`.
 | Account not found | Check account name with `scripts/commands/account/list.sh` |
 | Mailbox not found | Check mailbox name with `scripts/commands/mailbox/list.sh "ACCOUNT"` |
 | `jq is required` | Install `jq` and ensure it is in `PATH` |
-| Slow searches | Limit result count or use SQLite-based `apple-mail-search` skill |
+| Slow searches | Use `scripts/commands/message/search-global.sh` for fast cross-account search |
