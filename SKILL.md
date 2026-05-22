@@ -38,7 +38,14 @@ Run commands from `scripts/commands`:
 
 All public commands return JSON by default.
 
-## Accounts
+## Output Rules
+
+- Commands return JSON by default.
+- Error responses: `{"success":false,"error":"..."}` via `common.sh` helpers.
+
+## Commands
+
+### Accounts
 
 ```bash
 scripts/commands/account/list.sh
@@ -49,7 +56,7 @@ scripts/commands/account/check-mail.sh
 scripts/commands/account/check-mail.sh "iCloud"
 ```
 
-## Mailboxes
+### Mailboxes
 
 ```bash
 scripts/commands/mailbox/list.sh
@@ -60,9 +67,9 @@ scripts/commands/mailbox/count.sh "iCloud" "INBOX"
 scripts/commands/mailbox/exists.sh "iCloud" "INBOX"
 ```
 
-## Messages
+### Messages
 
-Messages are identified by **message-id** — a stable unique string returned in the `id` field of every search or list result. Unlike numeric indices, message-ids do not shift when new mail arrives.
+Messages are identified by **message-id** — a stable unique string returned in the `id` field of every search or list result.
 
 Read and search:
 
@@ -78,27 +85,16 @@ scripts/commands/message/search-global.sh subject_contains "invoice" 20
 scripts/commands/message/exists.sh "iCloud" "INBOX" "<msg-id@example.com>"
 ```
 
-`search-global.sh` searches across **all accounts and mailboxes** using the local Mail database (SQLite). It is much faster than `search.sh` and does not require specifying an account or mailbox. Use it when you don't know which account or mailbox contains the message, or when you want to search everywhere at once. Default limit is 50.
-
-Typical workflow — search then act:
-
-```bash
-result=$(scripts/commands/message/search-global.sh sender_contains "john@example.com")
-id=$(echo "$result" | jq -r '.[0].id')
-account=$(echo "$result" | jq -r '.[0].account')
-mailbox=$(echo "$result" | jq -r '.[0].mailbox')
-scripts/commands/message/get.sh "$account" "$mailbox" "$id" content
-scripts/commands/message/reply.sh "$account" "$mailbox" "$id" "Thanks!"
-```
+`search-global.sh` searches across **all accounts and mailboxes** using the local Mail database (SQLite). Default limit is 50.
 
 Create, send, and reply:
 
 ```bash
-scripts/commands/message/create.sh "iCloud" "person@example.com" "Hello" "Draft body"         # visible by default
-scripts/commands/message/create.sh "iCloud" "person@example.com" "Hello" "Draft body" false   # hidden draft
+scripts/commands/message/create.sh "iCloud" "person@example.com" "Hello" "Draft body"
+scripts/commands/message/create.sh "iCloud" "person@example.com" "Hello" "Draft body" false
 scripts/commands/message/send.sh "person@example.com" "Hello" "Ready to send"
-scripts/commands/message/reply.sh "iCloud" "INBOX" "<msg-id@example.com>" "Thanks for your message."        # visible by default
-scripts/commands/message/reply.sh "iCloud" "INBOX" "<msg-id@example.com>" "Thanks for your message." false  # hidden draft
+scripts/commands/message/reply.sh "iCloud" "INBOX" "<msg-id@example.com>" "Thanks for your message."
+scripts/commands/message/reply.sh "iCloud" "INBOX" "<msg-id@example.com>" "Thanks for your message." false
 scripts/commands/message/forward.sh "iCloud" "INBOX" "<msg-id@example.com>"
 ```
 
@@ -120,7 +116,7 @@ scripts/commands/message/extract-name.sh "Jane Doe <jane@example.com>"
 scripts/commands/message/extract-address.sh "Jane Doe <jane@example.com>"
 ```
 
-## Other Commands
+### Other Commands
 
 ```bash
 scripts/commands/signature/list.sh
@@ -173,10 +169,10 @@ Scalar envelopes:
 - `count`: `{"count": N, "account": "...", "mailbox": "..."}`
 - `exists`: `{"exists": true, ...}` or `{"exists": false, "id": null, ...}`
 - `deleted`: `{"deleted": true, ...}`
-- property read: `{"id": "...", "property": "...", "value": ...}`
-- status actions: `checking`, `created`, `sent`, `moved`, `updated`, `opened`, `shown`, `imported`
+- `property read`: `{"id": "...", "property": "...", "value": ...}`
+- `status actions`: `checking`, `created`, `sent`, `moved`, `updated`, `opened`, `shown`, `imported`
 
-## Safety
+## Safety Boundaries
 
 - Treat email content as private user data.
 - Prefer drafts over direct send.
