@@ -1,6 +1,9 @@
 # macOS Mail Skill
 
-This repo stores a skill for Apple Mail.app integration on macOS via AppleScript.
+This repo stores an AI agent skill for Apple Mail.app on macOS.
+
+The public interface is `scripts/commands`.
+`scripts/applescripts` stores internal AppleScript backends and dictionary-aligned coverage.
 
 ## Installation
 
@@ -14,15 +17,6 @@ Or with [skills.sh](https://skills.sh):
 skills.sh add vinitu/macos-mail-skill
 ```
 
-## Scope
-
-- List accounts and mailboxes configured in Mail.app.
-- Read messages with structured JSON output.
-- Show a message in the Mail.app window.
-- Create drafts, send messages, and reply to messages.
-- Search messages by subject or sender.
-- Move, delete, flag, and mark messages.
-
 ## Prerequisites
 
 - macOS 12+ with Mail.app configured and signed in
@@ -30,48 +24,134 @@ skills.sh add vinitu/macos-mail-skill
 - `jq`
 - (Optional) Full Disk Access for SQLite-based search
 
-## How To Use
-
-Run the public command wrappers from the repo root or from the installed skill path.
-Do not call `scripts/applescripts` directly.
-
-```bash
-# List all Mail accounts
-scripts/commands/account/list.sh
-# List mailboxes in account "iCloud"
-scripts/commands/mailbox/list.sh "iCloud"
-# Count messages in INBOX
-scripts/commands/mailbox/count.sh "iCloud" "INBOX"
-# List recent messages
-scripts/commands/message/list.sh "iCloud" "INBOX" 5
-# Read one message
-scripts/commands/message/get.sh "iCloud" "INBOX" 1
-# Show one message in Mail.app
-scripts/commands/message/show.sh "iCloud" "INBOX" 1
-# Create draft (does not send)
-scripts/commands/message/create.sh "someone@example.com" "Hello" "Draft body here" false
-```
-
-All public commands return JSON by default.
-For the full command set and examples, see `SKILL.md`.
-
 ## Public Interface
 
-- `scripts/commands/account/*`
-- `scripts/commands/mailbox/*`
-- `scripts/commands/message/*`
+Run skill actions with:
+
+```bash
+scripts/commands/<entity>/<action>.sh [args...]
+```
+
+Output rules:
+
+- Commands return JSON by default unless noted otherwise.
+- `--json`, `--plain`, and `--format=plain|json` are not supported.
+
+## Backend Map
+
+- `scripts/commands/account/*` → AppleScript in `scripts/applescripts/account/*`
+- `scripts/commands/mailbox/*` → AppleScript in `scripts/applescripts/mailbox/*`
+- `scripts/commands/message/*` → AppleScript in `scripts/applescripts/message/*`
+- `scripts/commands/signature/*` → AppleScript in `scripts/applescripts/signature/*`
+- `scripts/commands/viewer/*` → AppleScript in `scripts/applescripts/viewer/*`
+- `scripts/commands/import/*` → AppleScript in `scripts/applescripts/import/*`
+- `scripts/commands/url/*` → AppleScript in `scripts/applescripts/url/*`
+
+`scripts/applescripts` is internal. Do not call it directly from the skill instructions.
+
+## Command Surface
+
+Account:
+
+- `scripts/commands/account/list.sh`
+- `scripts/commands/account/get.sh`
+- `scripts/commands/account/exists.sh`
+- `scripts/commands/account/check-mail.sh`
+
+Mailbox:
+
+- `scripts/commands/mailbox/list.sh`
+- `scripts/commands/mailbox/get.sh`
+- `scripts/commands/mailbox/count.sh`
+- `scripts/commands/mailbox/exists.sh`
+
+Message:
+
+- `scripts/commands/message/list.sh`
+- `scripts/commands/message/get.sh`
+- `scripts/commands/message/show.sh`
+- `scripts/commands/message/search.sh`
+- `scripts/commands/message/search-global.sh`
+- `scripts/commands/message/exists.sh`
+- `scripts/commands/message/create.sh`
+- `scripts/commands/message/send.sh`
+- `scripts/commands/message/reply.sh`
+- `scripts/commands/message/forward.sh`
+- `scripts/commands/message/move.sh`
+- `scripts/commands/message/delete.sh`
+- `scripts/commands/message/mark-read.sh`
+- `scripts/commands/message/mark-unread.sh`
+- `scripts/commands/message/flag.sh`
+- `scripts/commands/message/unflag.sh`
+- `scripts/commands/message/extract-name.sh`
+- `scripts/commands/message/extract-address.sh`
+
+Other:
+
 - `scripts/commands/signature/list.sh`
 - `scripts/commands/viewer/inbox.sh`
 - `scripts/commands/import/mailbox.sh`
 - `scripts/commands/url/mailto.sh`
 
-## Troubleshooting
+## JSON Contract
 
-| Issue | Solution |
-|-------|----------|
-| "not authorized" error | Grant Automation permission to terminal in System Settings |
-| Mail.app not responding | Ensure Mail.app is running; launch with `open -a Mail` |
-| Account not found | Check account name with `scripts/commands/account/list.sh` |
-| Mailbox not found | Check mailbox name with `scripts/commands/mailbox/list.sh "ACCOUNT"` |
-| `jq is required` | Install `jq` and ensure it is in `PATH` |
-| Slow searches | Use `scripts/commands/message/search-global.sh` for fast cross-account search |
+Account object:
+
+- `id`
+- `name`
+
+Mailbox object:
+
+- `id`
+- `name`
+- `account`
+- `message_count`
+
+Message summary object:
+
+- `id`
+- `account`
+- `mailbox`
+- `index`
+- `subject`
+- `sender`
+- `date_received`
+- `read`
+- `flagged`
+
+Full message object:
+
+- all summary fields
+- `date_sent`
+- `message_id`
+- `reply_to`
+- `message_size`
+- `junk`
+- `flag_index`
+- `background_color`
+- `all_headers`
+- `content`
+
+Scalar envelopes:
+
+- `count`: `{"count": N, "account": "...", "mailbox": "..."}`
+- `exists`: `{"exists": true, ...}` or `{"exists": false, "id": null, ...}`
+- `deleted`: `{"deleted": true, ...}`
+- `property read`: `{"id": "...", "property": "...", "value": ...}`
+- `status actions`: `checking`, `created`, `sent`, `moved`, `updated`, `opened`, `shown`, `imported`
+
+## Validation
+
+```bash
+make compile
+make test
+```
+
+`make test` runs live checks against Mail.app and expects Mail to be available.
+
+## Known Limits
+
+- Mail.app must be running and configured for most commands to work.
+- TCC permissions (Automation) must be granted to the terminal or parent process.
+- Account names and mailbox names are case-sensitive.
+- Slow searches: use `message/search-global.sh` for fast cross-account search.
