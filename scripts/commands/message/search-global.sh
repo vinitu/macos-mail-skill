@@ -42,12 +42,9 @@ else
   where_clause="LOWER(sub.subject) LIKE LOWER('%${safe_value}%')"
 fi
 
-# Query SQLite — output raw rows using unit separator (0x1F) to avoid conflicts
-# CTE ranks ALL messages per mailbox (DESC = newest first, matching Mail.app UI order),
-# then filters to matching rows so the index reflects the true position in the mailbox.
-rows="$(sqlite3 "$DB" \
-  -separator $'\x1f' \
-  "WITH ranked AS (
+# Query SQLite — output raw rows using unit separator (0x1F) to avoid conflicts.
+# Capture exit code explicitly so set -e does not kill the script on failure.
+sqlite3_query="WITH ranked AS (
      SELECT
        ROWID,
        CAST(ROW_NUMBER() OVER (PARTITION BY mailbox ORDER BY date_received DESC) AS TEXT) AS idx
@@ -73,7 +70,24 @@ rows="$(sqlite3 "$DB" \
    WHERE $where_clause
      AND m.deleted = 0
    ORDER BY m.date_received DESC
-   LIMIT $limit;" 2>/dev/null)"
+   LIMIT $limit;"
+
+sqlite3_rc=0
+sqlite3_err=""
+sqlite3_err_file="$(mktemp)"
+if ! rows="$(sqlite3 "$DB" -separator $'\x1f' "$sqlite3_query" 2>"$sqlite3_err_file")"; then
+  sqlite3_rc=$?
+fi
+[[ -s "$sqlite3_err_file" ]] && sqlite3_err="$(cat "$sqlite3_err_file")"
+rm -f "$sqlite3_err_file"
+
+if [[ $sqlite3_rc -ne 0 ]]; then
+  # Return a clear JSON error instead of silently exiting with code 1.
+  err_msg="SQLite query failed (exit $sqlite3_rc)"
+  [[ -n "$sqlite3_err" ]] && err_msg="$err_msg: $sqlite3_err"
+  printf '%s\n' "{\"success\":false,\"error\":\"${err_msg//\"/\\\"}\"}" >&2
+  exit 1
+fi
 
 if [[ -z "$rows" ]]; then
   echo '[]'
