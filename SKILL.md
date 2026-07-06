@@ -80,12 +80,13 @@ scripts/commands/message/get.sh "iCloud" "INBOX" "<msg-id@example.com>" subject
 scripts/commands/message/show.sh "iCloud" "INBOX" "<msg-id@example.com>"
 scripts/commands/message/search.sh "iCloud" "INBOX" subject_contains "invoice"
 scripts/commands/message/search.sh "iCloud" "INBOX" sender_contains "john@example.com"
+scripts/commands/message/search.sh "iCloud" "Archive" subject_contains "invoice" 20
 scripts/commands/message/search-global.sh sender_contains "john"
 scripts/commands/message/search-global.sh subject_contains "invoice" 20
 scripts/commands/message/exists.sh "iCloud" "INBOX" "<msg-id@example.com>"
 ```
 
-`search-global.sh` searches across **all accounts and mailboxes** using the local Mail database (SQLite). Default limit is 50.
+Both searches use the local Mail database (SQLite) — fast even on mailboxes with tens of thousands of messages. `search.sh` filters by account and mailbox (optional limit, default 1000); `search-global.sh` searches across **all accounts and mailboxes** (default limit 50).
 
 Create, send, and reply:
 
