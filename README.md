@@ -154,4 +154,4 @@ make test
 - Mail.app must be running and configured for most commands to work.
 - TCC permissions (Automation) must be granted to the terminal or parent process.
 - Account names and mailbox names are case-sensitive.
-- Slow searches: use `message/search-global.sh` for fast cross-account search.
+- Searches (`message/search.sh`, `message/search-global.sh`) read the local Mail SQLite index; results include only locally synced messages.

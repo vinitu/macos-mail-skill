@@ -4,13 +4,16 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/commands/_lib/common.sh
 source "$SCRIPT_DIR/../_lib/common.sh"
+# shellcheck source=scripts/commands/_lib/sqlite-search.sh
+source "$SCRIPT_DIR/../_lib/sqlite-search.sh"
 
-[[ $# -eq 4 ]] || { echo "Usage: $(basename "$0") <account-name> <mailbox-name> <subject_contains|sender_contains> <value>" >&2; exit 1; }
+[[ $# -ge 4 && $# -le 5 ]] || { echo "Usage: $(basename "$0") <account-name> <mailbox-name> <subject_contains|sender_contains> <value> [limit]" >&2; exit 1; }
 
 account_name="$1"
 mailbox_name="$2"
 mode="$3"
 value="$4"
+limit="${5:-1000}"
 
 account_exists_or_error "$account_name"
 mailbox_exists_or_error "$account_name" "$mailbox_name"
@@ -24,11 +27,10 @@ case "$mode" in
     ;;
 esac
 
-messages_raw="$(capture_osascript "$APPLETS_DIR/message/search.applescript" "$account_name" "$mailbox_name" "$mode" "$value")"
+require_positive_int "limit" "$limit"
 
-if [[ -z "$messages_raw" ]]; then
-  echo '[]'
-  exit 0
-fi
-
-printf '%s\n' "$messages_raw" | json_lines_to_array
+# Searches the local Mail SQLite index (fast on large mailboxes) instead
+# of iterating every message via AppleScript, which took minutes on
+# 10k+ message mailboxes and produced no output until the full scan
+# finished.
+run_sqlite_search "$mode" "$value" "$limit" "$account_name" "$mailbox_name"
