@@ -13,7 +13,10 @@ message_id="$3"
 
 account_exists_or_error "$account_name"
 mailbox_exists_or_error "$account_name" "$mailbox_name"
-index="$(resolve_index "$account_name" "$mailbox_name" "$message_id")"
 
-show_json="$(capture_osascript "$APPLETS_DIR/message/show.applescript" "$account_name" "$mailbox_name" "$index")"
+show_json="$(try_capture_osascript "$APPLETS_DIR/message/show-by-id.applescript" "$account_name" "$mailbox_name" "$message_id" 2>/dev/null)" || show_json=""
+if [[ -z "$show_json" ]]; then
+  index="$(resolve_index "$account_name" "$mailbox_name" "$message_id")"
+  show_json="$(capture_osascript "$APPLETS_DIR/message/show.applescript" "$account_name" "$mailbox_name" "$index")"
+fi
 printf '%s' "$show_json" | normalize_json_input

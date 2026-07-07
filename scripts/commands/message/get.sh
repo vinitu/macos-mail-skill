@@ -15,9 +15,12 @@ property="${4:-}"
 
 account_exists_or_error "$account_name"
 mailbox_exists_or_error "$account_name" "$mailbox_name"
-index="$(resolve_index "$account_name" "$mailbox_name" "$message_id")"
 
-message_json="$(capture_osascript "$APPLETS_DIR/message/get.applescript" "$account_name" "$mailbox_name" "$index")"
+message_json="$(try_capture_osascript "$APPLETS_DIR/message/get-by-id.applescript" "$account_name" "$mailbox_name" "$message_id" 2>/dev/null)" || message_json=""
+if [[ -z "$message_json" ]]; then
+  index="$(resolve_index "$account_name" "$mailbox_name" "$message_id")"
+  message_json="$(capture_osascript "$APPLETS_DIR/message/get.applescript" "$account_name" "$mailbox_name" "$index")"
+fi
 ensure_jq
 
 if [[ -z "$property" ]]; then
