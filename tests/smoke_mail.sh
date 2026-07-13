@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 JQ_BIN="${JQ_BIN:-$(command -v jq || true)}"
 
 [ -n "$JQ_BIN" ] || { echo "smoke_mail: jq is required." >&2; exit 1; }
