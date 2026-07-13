@@ -2,6 +2,12 @@
 
 This repo stores a skill for macOS Mail.app integration.
 
+## Public interface and internal backend
+
+- `scripts/commands/` is the only public command surface. Run commands from the repo root with paths like `scripts/commands/<entity>/<action>.sh`.
+- `scripts/applescripts/` is the internal backend. Do not call AppleScript files directly from skill instructions.
+- Only commands listed in `SKILL.md` are public. Other scripts may exist for internal use or legacy cleanup.
+
 ## Goal
 
 - Document AppleScript commands for Mail.app accurately.
