@@ -18,11 +18,28 @@ if [[ -z "${JQ_BIN:-}" ]]; then
   fi
 fi
 
+# fail <message...>
+# Emit the documented JSON error envelope {"success":false,"error":"..."} to
+# stderr and exit non-zero. Every command error path uses this so actual
+# output matches the SKILL.md error contract.
+fail() {
+  local msg="$*"
+  if [[ -n "${JQ_BIN:-}" ]]; then
+    "$JQ_BIN" -nc --arg error "$msg" '{success:false, error:$error}' >&2
+  else
+    # Minimal JSON string escaping when jq is unavailable.
+    local escaped="${msg//\\/\\\\}"
+    escaped="${escaped//\"/\\\"}"
+    escaped="${escaped//$'\n'/\\n}"
+    escaped="${escaped//$'\r'/\\r}"
+    escaped="${escaped//$'\t'/\\t}"
+    printf '{"success":false,"error":"%s"}\n' "$escaped" >&2
+  fi
+  exit 1
+}
+
 ensure_jq() {
-  [[ -n "$JQ_BIN" ]] || {
-    echo "jq is required" >&2
-    exit 1
-  }
+  [[ -n "$JQ_BIN" ]] || fail "jq is required"
 }
 
 capture_osascript() {
@@ -31,8 +48,7 @@ capture_osascript() {
 
   local output
   if ! output=$(/usr/bin/osascript "$script_path" "$@" 2>&1); then
-    printf '%s\n' "$output" >&2
-    exit 1
+    fail "$output"
   fi
 
   printf '%s' "$output"
@@ -59,10 +75,7 @@ require_positive_int() {
   local label="$1"
   local value="$2"
 
-  [[ "$value" =~ ^[0-9]+$ ]] && [[ "$value" -ge 1 ]] || {
-    echo "Invalid ${label}: ${value}" >&2
-    exit 1
-  }
+  [[ "$value" =~ ^[0-9]+$ ]] && [[ "$value" -ge 1 ]] || fail "Invalid ${label}: ${value}"
 }
 
 # resolve_index <account> <mailbox> <message-id>
@@ -98,13 +111,15 @@ resolve_index() {
   resolved="$(capture_osascript "$APPLETS_DIR/message/find-index.applescript" \
     "$account_name" "$mailbox_name" "$message_id")"
 
+  # Keep the diagnostic from #25 — a search-global id can legitimately name a message in
+  # another mailbox, and the bare "not found" sent people hunting in the wrong place —
+  # but raise it through this branch's `fail` helper.
   [[ "$resolved" =~ ^[0-9]+$ ]] || {
     if [[ "$from_rowid" -eq 1 ]]; then
-      echo "Message not found: $original_id (ROWID resolved to Message-ID $message_id, which is not in $account_name/$mailbox_name — a search-global id can name a message in another mailbox)" >&2
+      fail "Message not found: $original_id (ROWID resolved to Message-ID $message_id, which is not in $account_name/$mailbox_name — a search-global id can name a message in another mailbox)"
     else
-      echo "Message not found: $original_id" >&2
+      fail "Message not found: $original_id"
     fi
-    exit 1
   }
 
   printf '%s' "$resolved"
@@ -141,10 +156,7 @@ account_exists_or_error() {
   local accounts_raw
 
   accounts_raw="$(account_names_raw)"
-  printf '%s\n' "$accounts_raw" | grep -Fqx -- "$account_name" || {
-    echo "Account not found: $account_name" >&2
-    exit 1
-  }
+  printf '%s\n' "$accounts_raw" | grep -Fqx -- "$account_name" || fail "Account not found: $account_name"
 }
 
 mailbox_names_raw() {
@@ -163,10 +175,7 @@ mailbox_exists_or_error() {
   local mailboxes_raw
 
   mailboxes_raw="$(mailbox_names_raw "$account_name")"
-  printf '%s\n' "$mailboxes_raw" | grep -Fqx -- "$mailbox_name" || {
-    echo "Mailbox not found: $mailbox_name" >&2
-    exit 1
-  }
+  printf '%s\n' "$mailboxes_raw" | grep -Fqx -- "$mailbox_name" || fail "Mailbox not found: $mailbox_name"
 }
 
 # Validate attachment paths and expose them as absolute POSIX paths in RESOLVED_ATTACHMENTS.
@@ -176,19 +185,10 @@ resolve_attachments_or_error() {
   RESOLVED_ATTACHMENTS=()
   local p abs
   for p in "$@"; do
-    [ -n "$p" ] || { echo "Attachment path is empty" >&2; exit 1; }
-    if [ ! -e "$p" ]; then
-      echo "Attachment not found: $p" >&2
-      exit 1
-    fi
-    if [ -d "$p" ]; then
-      echo "Attachment is a directory, not a file: $p" >&2
-      exit 1
-    fi
-    if [ ! -r "$p" ]; then
-      echo "Attachment is not readable: $p" >&2
-      exit 1
-    fi
+    [ -n "$p" ] || fail "Attachment path is empty"
+    [ -e "$p" ] || fail "Attachment not found: $p"
+    [ ! -d "$p" ] || fail "Attachment is a directory, not a file: $p"
+    [ -r "$p" ] || fail "Attachment is not readable: $p"
     abs="$(cd "$(dirname "$p")" && pwd)/$(basename "$p")"
     RESOLVED_ATTACHMENTS+=("$abs")
   done

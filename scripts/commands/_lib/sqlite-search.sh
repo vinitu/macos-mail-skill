@@ -18,7 +18,7 @@ MAIL_DB="$HOME/Library/Mail/V10/MailData/Envelope Index"
 run_sqlite_search() {
   local mode="$1" value="$2" limit="$3" account_filter="${4:-}" mailbox_filter="${5:-}"
 
-  [[ -f "$MAIL_DB" ]] || { echo "Mail database not found: $MAIL_DB" >&2; return 1; }
+  [[ -f "$MAIL_DB" ]] || fail "Mail database not found: $MAIL_DB"
 
   # Account UUID→name mapping from Mail.app (one fast Apple Event)
   local account_map
@@ -93,8 +93,7 @@ end tell' 2>/dev/null)"
   if [[ $sqlite3_rc -ne 0 ]]; then
     local err_msg="SQLite query failed (exit $sqlite3_rc)"
     [[ -n "$sqlite3_err" ]] && err_msg="$err_msg: $sqlite3_err"
-    printf '%s\n' "{\"success\":false,\"error\":\"${err_msg//\"/\\\"}\"}" >&2
-    return 1
+    fail "$err_msg"
   fi
 
   if [[ -z "$rows" ]]; then

@@ -6,34 +6,44 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/commands/_lib/common.sh
 source "$SCRIPT_DIR/../_lib/common.sh"
 
-[[ $# -le 1 ]] || { echo "Usage: $(basename "$0") [account-name]" >&2; exit 1; }
+usage() {
+  printf 'Usage: %s [account-name]\n' "$(basename "$0")" >&2
+}
 
-account_name="${1:-}"
-if [[ -n "$account_name" ]]; then
-  account_exists_or_error "$account_name"
-else
-  account_name="$(account_names_raw | head -n 1)"
-fi
+main() {
+  [[ $# -le 1 ]] || { usage; fail "wrong number of arguments"; }
 
-if [[ -z "$account_name" ]]; then
-  echo '[]'
-  exit 0
-fi
+  local account_name="${1:-}"
+  if [[ -n "$account_name" ]]; then
+    account_exists_or_error "$account_name"
+  else
+    account_name="$(account_names_raw | head -n 1)"
+  fi
 
-mailboxes_raw="$(mailbox_names_raw "$account_name")"
-ensure_jq
+  if [[ -z "$account_name" ]]; then
+    echo '[]'
+    exit 0
+  fi
 
-out='[]'
-while IFS= read -r mailbox_name; do
-  [[ -n "$mailbox_name" ]] || continue
-  count_raw="$(capture_osascript "$APPLETS_DIR/mailbox/count.applescript" "$account_name" "$mailbox_name")"
-  mailbox_json="$("$JQ_BIN" -nc \
-    --arg id "${account_name}/${mailbox_name}" \
-    --arg name "$mailbox_name" \
-    --arg account "$account_name" \
-    --argjson count "$count_raw" \
-    '{id: $id, name: $name, account: $account, message_count: $count}')"
-  out="$(printf '%s' "$out" | "$JQ_BIN" -c --argjson item "$mailbox_json" '. + [$item]')"
-done <<< "$mailboxes_raw"
+  local mailboxes_raw
+  mailboxes_raw="$(mailbox_names_raw "$account_name")"
+  ensure_jq
 
-printf '%s\n' "$out"
+  local out='[]'
+  local mailbox_name count_raw mailbox_json
+  while IFS= read -r mailbox_name; do
+    [[ -n "$mailbox_name" ]] || continue
+    count_raw="$(capture_osascript "$APPLETS_DIR/mailbox/count.applescript" "$account_name" "$mailbox_name")"
+    mailbox_json="$("$JQ_BIN" -nc \
+      --arg id "${account_name}/${mailbox_name}" \
+      --arg name "$mailbox_name" \
+      --arg account "$account_name" \
+      --argjson count "$count_raw" \
+      '{id: $id, name: $name, account: $account, message_count: $count}')"
+    out="$(printf '%s' "$out" | "$JQ_BIN" -c --argjson item "$mailbox_json" '. + [$item]')"
+  done <<< "$mailboxes_raw"
+
+  printf '%s\n' "$out"
+}
+
+main "$@"
