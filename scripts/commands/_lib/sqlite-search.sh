@@ -39,7 +39,11 @@ end tell' 2>/dev/null)"
     where_clause="(LOWER(addr.address) LIKE LOWER('%${safe_value}%')
                 OR LOWER(addr.comment) LIKE LOWER('%${safe_value}%'))"
   else
-    where_clause="LOWER(sub.subject) LIKE LOWER('%${safe_value}%')"
+    # Match the full subject, prefix included. `messages.subject_prefix` holds
+    # "Re: ", "Fwd: " and friends in a separate column — 85 087 of them here —
+    # so matching sub.subject alone means a subject copied out of list.sh never
+    # finds its own message.
+    where_clause="LOWER(COALESCE(m.subject_prefix, '') || sub.subject) LIKE LOWER('%${safe_value}%')"
   fi
 
   # SQL-level cap: exact when no post-SQL filters; otherwise a generous
@@ -58,7 +62,7 @@ end tell' 2>/dev/null)"
      )
      SELECT
        COALESCE(mgd.message_id_header, CAST(m.ROWID AS TEXT)),
-       sub.subject,
+       COALESCE(m.subject_prefix, '') || sub.subject,
        addr.address,
        COALESCE(addr.comment, ''),
        mb.url,

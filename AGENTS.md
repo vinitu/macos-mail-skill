@@ -22,7 +22,8 @@ This repo stores a skill for macOS Mail.app integration.
 - `README.md`: public project overview and installation notes.
 - `Makefile`: targets `dictionary-mail`, `check`, `compile`, `test` (test-dictionary + test-smoke).
 - `scripts/commands/`: public shell interface. All commands return JSON by default.
-- `scripts/commands/_lib/common.sh`: shared shell helpers.
+- `scripts/commands/_lib/common.sh`: shared shell helpers, including `resolve_index` / `resolve_index_soft`.
+- `scripts/commands/_lib/emlx.sh`: maps an Envelope Index ROWID to the RFC Message-ID by reading the on-disk `.emlx`. This is what lets a `search.sh` id be used with the commands that take an id.
 - `scripts/commands/account/`: `list.sh`, `get.sh`, `exists.sh`, `check-mail.sh`.
 - `scripts/commands/mailbox/`: `list.sh`, `get.sh`, `count.sh`, `exists.sh`.
 - `scripts/commands/message/`: `list.sh`, `get.sh`, `search.sh`, `exists.sh`, `create.sh`, `send.sh`, `reply.sh`, `forward.sh`, `move.sh`, `delete.sh`, `mark-read.sh`, `mark-unread.sh`, `flag.sh`, `unflag.sh`, `extract-name.sh`, `extract-address.sh`.

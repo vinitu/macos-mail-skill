@@ -5,6 +5,9 @@ COMMANDS_DIR="$(cd "$COMMON_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$COMMANDS_DIR/../.." && pwd)"
 APPLETS_DIR="$REPO_ROOT/scripts/applescripts"
 
+# shellcheck source=scripts/commands/_lib/emlx.sh
+source "$COMMON_DIR/emlx.sh"
+
 if [[ -z "${JQ_BIN:-}" ]]; then
   if JQ_BIN="$(command -v jq 2>/dev/null)"; then
     :
@@ -70,16 +73,63 @@ resolve_index() {
   local mailbox_name="$2"
   local message_id="$3"
 
+  # `search.sh` and `search-global.sh` return `messages.ROWID` from the SQLite
+  # Envelope Index, while find-index matches on the RFC Message-ID header. Bridge
+  # the two through the on-disk message file, whose name is the ROWID — otherwise
+  # no id from a search can be used with any command that takes one.
+  local original_id="$message_id"
+  local from_rowid=0
+  if [[ "$message_id" =~ ^[0-9]+$ ]]; then
+    local header_id
+    if header_id="$(message_id_from_rowid "$message_id")" && [[ -n "$header_id" ]]; then
+      message_id="$header_id"
+      from_rowid=1
+    else
+      # Fail here rather than handing a bare integer to find-index. An RFC
+      # Message-ID always contains an "@", so a plain number can never match —
+      # and find-index would issue one Apple Event per message in the mailbox
+      # before saying so, which on a large mailbox takes minutes.
+      echo "Message not found: $original_id — a numeric id must be a ROWID from search.sh or search-global.sh, and no message file with that ROWID exists on disk. Note this is NOT the small 'index' field returned alongside it: pass the 'id' field." >&2
+      exit 1
+    fi
+  fi
+
   local resolved
   resolved="$(capture_osascript "$APPLETS_DIR/message/find-index.applescript" \
     "$account_name" "$mailbox_name" "$message_id")"
 
   [[ "$resolved" =~ ^[0-9]+$ ]] || {
-    echo "Message not found: $message_id" >&2
+    if [[ "$from_rowid" -eq 1 ]]; then
+      echo "Message not found: $original_id (ROWID resolved to Message-ID $message_id, which is not in $account_name/$mailbox_name — a search-global id can name a message in another mailbox)" >&2
+    else
+      echo "Message not found: $original_id" >&2
+    fi
     exit 1
   }
 
   printf '%s' "$resolved"
+}
+
+# Same translation, but silent: prints the index or nothing, never exits.
+# `exists.sh` needs a soft answer, so it must not go through resolve_index.
+resolve_index_soft() {
+  local account_name="$1"
+  local mailbox_name="$2"
+  local message_id="$3"
+
+  if [[ "$message_id" =~ ^[0-9]+$ ]]; then
+    local header_id
+    header_id="$(message_id_from_rowid "$message_id" 2>/dev/null)" || return 0
+    [[ -n "$header_id" ]] || return 0
+    message_id="$header_id"
+  fi
+
+  local resolved
+  resolved="$(/usr/bin/osascript "$APPLETS_DIR/message/find-index.applescript" \
+    "$account_name" "$mailbox_name" "$message_id" 2>/dev/null)" || return 0
+
+  [[ "$resolved" =~ ^[0-9]+$ ]] && printf '%s' "$resolved"
+  return 0
 }
 
 account_names_raw() {
