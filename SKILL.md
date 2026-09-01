@@ -69,7 +69,26 @@ scripts/commands/mailbox/exists.sh "iCloud" "INBOX"
 
 ### Messages
 
-Messages are identified by **message-id** — a stable unique string returned in the `id` field of every search or list result.
+### Message ids
+
+Every command that takes a message accepts **either** form of id, and both come from the `id` field
+of a listing or a search:
+
+| Source | What its `id` is | Example |
+|---|---|---|
+| `message/list.sh` | the RFC **Message-ID** header | `abc123@example.com` |
+| `message/search.sh`, `message/search-global.sh` | the Envelope Index **ROWID**, a bare integer | `1799703` |
+
+Pass the `id` field through unchanged and it will work. A ROWID is translated to the Message-ID
+behind the scenes by reading the message file on disk, so the two are interchangeable at the
+command line.
+
+**Do not pass the `index` field.** Listings also return `index`, a small per-mailbox position
+number; it is not an id and shifts as mail arrives. A numeric id is read as a ROWID.
+
+`search-global.sh` searches every mailbox, so an id it returns may belong to a **different**
+mailbox than the one you pass — the command then reports the message as not found there, and names
+the mailbox mismatch in the error.
 
 Read and search:
 
@@ -77,7 +96,7 @@ Read and search:
 scripts/commands/message/list.sh "iCloud" "INBOX" 5
 scripts/commands/message/get.sh "iCloud" "INBOX" "<msg-id@example.com>"
 scripts/commands/message/get.sh "iCloud" "INBOX" "<msg-id@example.com>" subject
-scripts/commands/message/show.sh "iCloud" "INBOX" "<msg-id@example.com>"
+scripts/commands/message/show.sh "iCloud" "INBOX" "<msg-id@example.com>"   # selects it in Mail's UI
 scripts/commands/message/search.sh "iCloud" "INBOX" subject_contains "invoice"
 scripts/commands/message/search.sh "iCloud" "INBOX" sender_contains "john@example.com"
 scripts/commands/message/search.sh "iCloud" "Archive" subject_contains "invoice" 20
@@ -85,6 +104,17 @@ scripts/commands/message/search-global.sh sender_contains "john"
 scripts/commands/message/search-global.sh subject_contains "invoice" 20
 scripts/commands/message/exists.sh "iCloud" "INBOX" "<msg-id@example.com>"
 ```
+
+**`get.sh` is the reader.** It returns the full record including **`content`** (the body text) and
+**`all_headers`** (every header, raw). **`show.sh` does not return a body** despite its name — it
+selects the message in Mail's window and answers `{"shown":true,...}` with metadata only.
+
+**An attachment may not be on disk.** Mail can hold a message whose attachments were never
+downloaded; they then read as zero bytes. No command here can force the download — `show.sh` does
+not do it either. The message has to be opened in Mail.app, or fetched from a device that already
+has it.
+
+**`create.sh` cannot attach a file.** Compose the draft with it, then attach by hand in Mail.
 
 Both searches use the local Mail database (SQLite) — fast even on mailboxes with tens of thousands of messages. `search.sh` filters by account and mailbox (optional limit, default 1000); `search-global.sh` searches across **all accounts and mailboxes** (default limit 50).
 

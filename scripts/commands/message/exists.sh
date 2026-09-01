@@ -16,8 +16,8 @@ account_exists_or_error "$account_name"
 mailbox_exists_or_error "$account_name" "$mailbox_name"
 ensure_jq
 
-index="$(/usr/bin/osascript "$APPLETS_DIR/message/find-index.applescript" \
-  "$account_name" "$mailbox_name" "$message_id" 2>/dev/null)" || index=""
+# Goes through the shared resolver so a ROWID from search.sh works here too.
+index="$(resolve_index_soft "$account_name" "$mailbox_name" "$message_id")"
 
 if [[ "$index" =~ ^[0-9]+$ ]]; then
   message_json="$(try_capture_osascript "$APPLETS_DIR/message/get.applescript" "$account_name" "$mailbox_name" "$index" 2>/dev/null)" || message_json=""

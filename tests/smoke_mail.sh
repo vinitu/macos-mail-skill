@@ -37,13 +37,28 @@ if [ -n "$first_acc" ]; then
     message_list_json="$("$ROOT_DIR/scripts/commands/message/list.sh" "$first_acc" "$first_mb" 1 2>&1)" || { echo "smoke_mail: message list failed." >&2; exit 1; }
     printf '%s\n' "$message_list_json" | "$JQ_BIN" -e 'type == "array"' >/dev/null || { echo "smoke_mail: message list is not JSON array." >&2; exit 1; }
 
-    first_index="$(printf '%s\n' "$message_list_json" | "$JQ_BIN" -r '.[0].index // empty')"
-    if [ -n "$first_index" ]; then
-      message_json="$("$ROOT_DIR/scripts/commands/message/get.sh" "$first_acc" "$first_mb" "$first_index" 2>&1)" || { echo "smoke_mail: message get failed." >&2; exit 1; }
+    # Use the `id` field, not `index`. `index` is a position, never an id, and
+    # passing it here asserted a contract that never existed.
+    first_id="$(printf '%s\n' "$message_list_json" | "$JQ_BIN" -r '.[0].id // empty')"
+    if [ -n "$first_id" ]; then
+      message_json="$("$ROOT_DIR/scripts/commands/message/get.sh" "$first_acc" "$first_mb" "$first_id" 2>&1)" || { echo "smoke_mail: message get failed." >&2; exit 1; }
       printf '%s\n' "$message_json" | "$JQ_BIN" -e 'has("id") and has("subject") and has("content")' >/dev/null || { echo "smoke_mail: message get contract mismatch." >&2; exit 1; }
 
-      show_json="$("$ROOT_DIR/scripts/commands/message/show.sh" "$first_acc" "$first_mb" "$first_index" 2>&1)" || { echo "smoke_mail: message show failed." >&2; exit 1; }
+      show_json="$("$ROOT_DIR/scripts/commands/message/show.sh" "$first_acc" "$first_mb" "$first_id" 2>&1)" || { echo "smoke_mail: message show failed." >&2; exit 1; }
       printf '%s\n' "$show_json" | "$JQ_BIN" -e '.shown == true and has("subject") and has("mailbox")' >/dev/null || { echo "smoke_mail: message show contract mismatch." >&2; exit 1; }
+
+      # A ROWID from search must reach the same message as its Message-ID.
+      rowid="$(printf '%s\n' "$("$ROOT_DIR/scripts/commands/message/search.sh" "$first_acc" "$first_mb" subject_contains "" 1 2>/dev/null)" | "$JQ_BIN" -r '.[0].id // empty')"
+      if printf '%s' "$rowid" | grep -Eq '^[0-9]+$'; then
+        rowid_json="$("$ROOT_DIR/scripts/commands/message/get.sh" "$first_acc" "$first_mb" "$rowid" 2>&1)" || { echo "smoke_mail: get by search ROWID failed — the search id is not usable by readers." >&2; exit 1; }
+        printf '%s\n' "$rowid_json" | "$JQ_BIN" -e 'has("id") and has("content")' >/dev/null || { echo "smoke_mail: get by ROWID contract mismatch." >&2; exit 1; }
+      fi
+
+      # A bare integer that is not a ROWID must fail fast, not scan the mailbox.
+      if "$ROOT_DIR/scripts/commands/message/get.sh" "$first_acc" "$first_mb" 999999999 >/dev/null 2>&1; then
+        echo "smoke_mail: a bogus numeric id unexpectedly succeeded." >&2
+        exit 1
+      fi
     fi
   fi
 fi
