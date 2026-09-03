@@ -64,3 +64,37 @@ if [ -n "$first_acc" ]; then
 fi
 
 echo "smoke_mail: ok"
+
+# Attachments: create a throwaway draft with a file, confirm Mail lists it, then remove the draft.
+# Uses a unique subject so cleanup cannot touch a real draft.
+attach_subject="smoke_mail attachment probe $$"
+attach_file="$(mktemp -t smoke_mail_attach)"
+printf 'smoke_mail attachment probe\n' > "$attach_file"
+
+cleanup_attach_probe() {
+  osascript -e "tell application \"Mail\" to delete (every message of mailbox \"Drafts\" of account \"$1\" whose subject is \"$attach_subject\")" >/dev/null 2>&1 || true
+  rm -f "$attach_file"
+}
+
+if [ -n "$first_acc" ]; then
+  trap 'cleanup_attach_probe "$first_acc"' EXIT
+  attach_json="$("$ROOT_DIR/scripts/commands/message/create.sh" "$first_acc" "nobody@example.invalid" "$attach_subject" "probe" false "$attach_file" 2>&1)" \
+    || { echo "smoke_mail: create with attachment failed: $attach_json" >&2; exit 1; }
+  printf '%s\n' "$attach_json" | "$JQ_BIN" -e '.attachments | length == 1' >/dev/null \
+    || { echo "smoke_mail: create did not report one attachment." >&2; exit 1; }
+
+  listed="$(osascript -e "tell application \"Mail\" to get name of every mail attachment of (item 1 of (messages of mailbox \"Drafts\" of account \"$first_acc\" whose subject is \"$attach_subject\"))" 2>/dev/null || true)"
+  case "$listed" in
+    *"$(basename "$attach_file")"*) ;;
+    *) echo "smoke_mail: draft does not carry the attachment (got: $listed)" >&2; exit 1 ;;
+  esac
+
+  # A path that does not exist must be refused before Mail is involved.
+  if "$ROOT_DIR/scripts/commands/message/create.sh" "$first_acc" "nobody@example.invalid" "$attach_subject" "probe" false "/no/such/file.pdf" >/dev/null 2>&1; then
+    echo "smoke_mail: a missing attachment path was accepted." >&2
+    exit 1
+  fi
+
+  cleanup_attach_probe "$first_acc"
+  trap - EXIT
+fi
