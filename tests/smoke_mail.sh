@@ -67,17 +67,37 @@ echo "smoke_mail: ok"
 
 # Attachments: create a throwaway draft with a file, confirm Mail lists it, then remove the draft.
 # Uses a unique subject so cleanup cannot touch a real draft.
-attach_subject="smoke_mail attachment probe $$"
+# A fixed subject, deliberately not per-PID: deleting from Drafts is unreliable on some machines,
+# and a unique subject per run would accumulate one orphan draft per run. With a constant subject
+# the sweep below also collects whatever a previous run failed to remove, so the litter is bounded
+# at one draft rather than growing.
+attach_subject="smoke_mail attachment probe"
 attach_file="$(mktemp -t smoke_mail_attach)"
 printf 'smoke_mail attachment probe\n' > "$attach_file"
 
+# `whose subject is "..."` silently deletes nothing in Mail's AppleScript, while
+# `whose subject contains "..."` works — the first version of this test used `is`, swallowed the
+# failure with `|| true`, and left a probe draft in the user's Drafts on every run.
 cleanup_attach_probe() {
-  osascript -e "tell application \"Mail\" to delete (every message of mailbox \"Drafts\" of account \"$1\" whose subject is \"$attach_subject\")" >/dev/null 2>&1 || true
+  osascript -e "tell application \"Mail\" to delete (every message of mailbox \"Drafts\" of account \"$1\" whose subject contains \"$attach_subject\")" >/dev/null 2>&1 || true
   rm -f "$attach_file"
 }
 
+# Deleting from Drafts is unreliable enough that the test has to police itself: report a leftover
+# rather than hide it, or the next run adds another one.
+warn_if_probe_left() {
+  local left
+  left="$(osascript -e "tell application \"Mail\" to get count of (every message of mailbox \"Drafts\" of account \"$1\" whose subject contains \"$attach_subject\")" 2>/dev/null || echo 0)"
+  if [ "${left:-0}" != "0" ]; then
+    echo "smoke_mail: WARNING - could not remove the probe draft \"$attach_subject\" from $1/Drafts; delete it by hand." >&2
+  fi
+}
+
 if [ -n "$first_acc" ]; then
-  trap 'cleanup_attach_probe "$first_acc"' EXIT
+  # Sweep first, in case an earlier run could not clean up after itself.
+  cleanup_attach_probe "$first_acc"
+  printf 'smoke_mail attachment probe\n' > "$attach_file"
+  trap 'cleanup_attach_probe "$first_acc"; warn_if_probe_left "$first_acc"' EXIT
   attach_json="$("$ROOT_DIR/scripts/commands/message/create.sh" "$first_acc" "nobody@example.invalid" "$attach_subject" "probe" false "$attach_file" 2>&1)" \
     || { echo "smoke_mail: create with attachment failed: $attach_json" >&2; exit 1; }
   printf '%s\n' "$attach_json" | "$JQ_BIN" -e '.attachments | length == 1' >/dev/null \
@@ -96,5 +116,6 @@ if [ -n "$first_acc" ]; then
   fi
 
   cleanup_attach_probe "$first_acc"
+  warn_if_probe_left "$first_acc"
   trap - EXIT
 fi
