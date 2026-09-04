@@ -168,3 +168,28 @@ mailbox_exists_or_error() {
     exit 1
   }
 }
+
+# Validate attachment paths and expose them as absolute POSIX paths in RESOLVED_ATTACHMENTS.
+# Mail attaches by file path, so a relative path or a directory fails inside AppleScript with a
+# generic error; catching it here gives the caller a usable message instead.
+resolve_attachments_or_error() {
+  RESOLVED_ATTACHMENTS=()
+  local p abs
+  for p in "$@"; do
+    [ -n "$p" ] || { echo "Attachment path is empty" >&2; exit 1; }
+    if [ ! -e "$p" ]; then
+      echo "Attachment not found: $p" >&2
+      exit 1
+    fi
+    if [ -d "$p" ]; then
+      echo "Attachment is a directory, not a file: $p" >&2
+      exit 1
+    fi
+    if [ ! -r "$p" ]; then
+      echo "Attachment is not readable: $p" >&2
+      exit 1
+    fi
+    abs="$(cd "$(dirname "$p")" && pwd)/$(basename "$p")"
+    RESOLVED_ATTACHMENTS+=("$abs")
+  done
+}

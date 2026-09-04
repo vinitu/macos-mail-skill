@@ -6,13 +6,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/commands/_lib/common.sh
 source "$SCRIPT_DIR/../_lib/common.sh"
 
-[[ $# -ge 4 && $# -le 5 ]] || { echo "Usage: $(basename "$0") <account-name> <mailbox-name> <message-id> <reply-body> [visible]" >&2; exit 1; }
+[[ $# -ge 4 ]] || { echo "Usage: $(basename "$0") <account-name> <mailbox-name> <message-id> <reply-body> [visible] [attachment...]" >&2; exit 1; }
 
 account_name="$1"
 mailbox_name="$2"
 message_id="$3"
 reply_body="$4"
 visible="${5:-true}"
+shift 4
+if [[ $# -gt 0 ]]; then shift 1; fi
+attachments=("$@")
 
 account_exists_or_error "$account_name"
 mailbox_exists_or_error "$account_name" "$mailbox_name"
@@ -27,7 +30,10 @@ case "$visible" in
     ;;
 esac
 
-capture_osascript "$APPLETS_DIR/message/reply.applescript" "$account_name" "$mailbox_name" "$index" "$reply_body" "$visible" >/dev/null
+resolve_attachments_or_error "${attachments[@]+"${attachments[@]}"}"
+
+capture_osascript "$APPLETS_DIR/message/reply.applescript" "$account_name" "$mailbox_name" "$index" "$reply_body" "$visible" \
+  "${RESOLVED_ATTACHMENTS[@]+"${RESOLVED_ATTACHMENTS[@]}"}" >/dev/null
 ensure_jq
 "$JQ_BIN" -nc \
   --arg account "$account_name" \
@@ -35,4 +41,6 @@ ensure_jq
   --argjson index "$index" \
   --arg body "$reply_body" \
   --arg visible "$visible" \
-  '{created: true, account: $account, mailbox: $mailbox, index: $index, body: $body, visible: ($visible == "true" or $visible == "1")}'
+  --args \
+  '{created: true, account: $account, mailbox: $mailbox, index: $index, body: $body, visible: ($visible == "true" or $visible == "1"), attachments: $ARGS.positional}' \
+  "${RESOLVED_ATTACHMENTS[@]+"${RESOLVED_ATTACHMENTS[@]}"}"

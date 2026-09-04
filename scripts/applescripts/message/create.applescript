@@ -1,7 +1,8 @@
--- Create a draft message (do not send). argv: account toAddress subject body [visible]
+-- Create a draft message (do not send). argv: account toAddress subject body [visible] [attachment...]
+-- Attachments are absolute POSIX paths; every argument after `visible` is treated as one.
 on run argv
 	if (count of argv) < 4 then
-		return "Usage: create.applescript <account> <to> <subject> <body> [visible]"
+		return "Usage: create.applescript <account> <to> <subject> <body> [visible] [attachment...]"
 	end if
 	set accName to item 1 of argv
 	set toAddr to item 2 of argv
@@ -18,6 +19,17 @@ on run argv
 		tell newMsg
 			make new to recipient at end of to recipients with properties {address:toAddr}
 		end tell
+		if (count of argv) ≥ 6 then
+			repeat with i from 6 to (count of argv)
+				set p to item i of argv
+				tell content of newMsg
+					make new attachment with properties {file name:(POSIX file p)} at after the last paragraph
+				end tell
+			end repeat
+			-- Mail needs a moment to read each file in before the draft is saved.
+			delay 1
+			save newMsg
+		end if
 	end tell
 	return "draft created"
 end run

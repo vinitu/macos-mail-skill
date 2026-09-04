@@ -114,7 +114,10 @@ downloaded; they then read as zero bytes. No command here can force the download
 not do it either. The message has to be opened in Mail.app, or fetched from a device that already
 has it.
 
-**`create.sh` cannot attach a file.** Compose the draft with it, then attach by hand in Mail.
+**Attachments**: `create.sh` and `reply.sh` take file paths after the `visible` argument. Every
+argument past `visible` is one attachment, and each must be an existing readable file — a missing
+path or a directory is rejected before Mail is touched. The command returns the resolved absolute
+paths in `attachments`. `send.sh` and `forward.sh` do not take attachments.
 
 Both searches use the local Mail database (SQLite) — fast even on mailboxes with tens of thousands of messages. `search.sh` filters by account and mailbox (optional limit, default 1000); `search-global.sh` searches across **all accounts and mailboxes** (default limit 50).
 
@@ -123,9 +126,12 @@ Create, send, and reply:
 ```bash
 scripts/commands/message/create.sh "iCloud" "person@example.com" "Hello" "Draft body"
 scripts/commands/message/create.sh "iCloud" "person@example.com" "Hello" "Draft body" false
+scripts/commands/message/create.sh "iCloud" "person@example.com" "Invoice" "See attached." false /abs/path/invoice.pdf
+scripts/commands/message/create.sh "iCloud" "person@example.com" "Scans" "Two files." false /abs/a.pdf /abs/b.pdf
 scripts/commands/message/send.sh "person@example.com" "Hello" "Ready to send"
 scripts/commands/message/reply.sh "iCloud" "INBOX" "<msg-id@example.com>" "Thanks for your message."
 scripts/commands/message/reply.sh "iCloud" "INBOX" "<msg-id@example.com>" "Thanks for your message." false
+scripts/commands/message/reply.sh "iCloud" "INBOX" "<msg-id@example.com>" "Documents attached." false /abs/path/docs.pdf
 scripts/commands/message/forward.sh "iCloud" "INBOX" "<msg-id@example.com>"
 ```
 
