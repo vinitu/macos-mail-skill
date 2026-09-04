@@ -6,35 +6,43 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/commands/_lib/common.sh
 source "$SCRIPT_DIR/../_lib/common.sh"
 
-[[ $# -ge 1 && $# -le 2 ]] || { echo "Usage: $(basename "$0") <account-name> [id|name]" >&2; exit 1; }
+usage() {
+  printf 'Usage: %s <account-name> [id|name]\n' "$(basename "$0")" >&2
+}
 
-account_name="$1"
-property="${2:-}"
+main() {
+  [[ $# -ge 1 && $# -le 2 ]] || { usage; fail "wrong number of arguments"; }
 
-account_exists_or_error "$account_name"
-ensure_jq
+  local account_name="$1"
+  local property="${2:-}"
 
-account_json="$("$JQ_BIN" -nc --arg id "$account_name" --arg name "$account_name" '{id: $id, name: $name}')"
+  account_exists_or_error "$account_name"
+  ensure_jq
 
-if [[ -z "$property" ]]; then
-  printf '%s' "$account_json"
-  exit 0
-fi
+  local account_json
+  account_json="$("$JQ_BIN" -nc --arg id "$account_name" --arg name "$account_name" '{id: $id, name: $name}')"
 
-case "$property" in
-  id|name)
-    ;;
-  *)
-    echo "Unsupported account property: $property" >&2
-    exit 1
-    ;;
-esac
+  if [[ -z "$property" ]]; then
+    printf '%s' "$account_json"
+    exit 0
+  fi
 
-printf '%s' "$account_json" | "$JQ_BIN" -c --arg property "$property" '
-  {
-    id: .id,
-    name: .name,
-    property: $property,
-    value: .[$property]
-  }
-'
+  case "$property" in
+    id|name)
+      ;;
+    *)
+      fail "Unsupported account property: $property"
+      ;;
+  esac
+
+  printf '%s' "$account_json" | "$JQ_BIN" -c --arg property "$property" '
+    {
+      id: .id,
+      name: .name,
+      property: $property,
+      value: .[$property]
+    }
+  '
+}
+
+main "$@"

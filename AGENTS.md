@@ -29,9 +29,26 @@ This repo stores a skill for macOS Mail.app integration.
 - `scripts/commands/message/`: `list.sh`, `get.sh`, `search.sh`, `exists.sh`, `create.sh`, `send.sh`, `reply.sh`, `forward.sh`, `move.sh`, `delete.sh`, `mark-read.sh`, `mark-unread.sh`, `flag.sh`, `unflag.sh`, `extract-name.sh`, `extract-address.sh`.
 - `scripts/commands/signature/list.sh`, `scripts/commands/viewer/inbox.sh`, `scripts/commands/import/mailbox.sh`, `scripts/commands/url/mailto.sh`.
 - `scripts/applescripts/account/`, `mailbox/`, `message/`, `signature/`, `viewer/`, `import/`, `url/`: internal AppleScript entrypoints.
-- `tests/dictionary_contract.sh`: contract test against Mail.app scripting dictionary.
-- `tests/smoke_mail.sh`: smoke test for the public command layer (skips when Mail.app is not available).
+- `scripts/tests/dictionary_contract.sh`: contract test against Mail.app scripting dictionary.
+- `scripts/tests/smoke_mail.sh`: smoke test for the public command layer (skips when Mail.app is not available).
 - `.github/workflows/ci-pr.yml`, `ci-main.yml`: CI on PR and push to main.
+
+## Source of Truth
+
+- `make dictionary-mail` / `make dictionary-standard` for the live Mail.app scripting dictionary.
+- Live checks with `osascript` against Mail.app.
+
+## Pitfalls / Environment Limits
+
+- Mail.app automation may need **Full Disk Access** for message history access (System Settings → Privacy & Security).
+- SMTP send operations may require network connectivity and account configuration.
+- Mailbox paths differ between account types (IMAP vs local).
+
+## Safety Rules
+
+- Treat email data as real user data.
+- Write operations (send, delete, move, reply, forward, create) must be explicit and require user approval.
+- Use the `CodexTest_` prefix for any test data and clean up after tests.
 
 ## Public Rule
 
