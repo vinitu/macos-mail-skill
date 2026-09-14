@@ -71,6 +71,30 @@ echo "smoke_mail: ok"
 # and a unique subject per run would accumulate one orphan draft per run. With a constant subject
 # the sweep below also collects whatever a previous run failed to remove, so the litter is bounded
 # at one draft rather than growing.
+# Removing a draft is unreliable in Mail's AppleScript: `delete` can throw while still having
+# removed one message, and deleting from a `whose` collection invalidates the rest of it. What
+# works is one removal per call, re-querying each time, with `move` to the trash as the fallback.
+remove_drafts_matching() {
+  local acc="$1" subj="$2"
+  osascript <<APPLESCRIPT >/dev/null 2>&1 || true
+tell application "Mail"
+  set acct to account "$acc"
+  repeat 8 times
+    set hits to (every message of mailbox "Drafts" of acct whose subject contains "$subj")
+    if (count of hits) is 0 then exit repeat
+    try
+      delete (last item of hits)
+    on error
+      try
+        move (last item of hits) to mailbox "Deleted Messages" of acct
+      end try
+    end try
+    delay 0.3
+  end repeat
+end tell
+APPLESCRIPT
+}
+
 attach_subject="smoke_mail attachment probe"
 attach_file="$(mktemp -t smoke_mail_attach)"
 printf 'smoke_mail attachment probe\n' > "$attach_file"
@@ -79,7 +103,7 @@ printf 'smoke_mail attachment probe\n' > "$attach_file"
 # `whose subject contains "..."` works — the first version of this test used `is`, swallowed the
 # failure with `|| true`, and left a probe draft in the user's Drafts on every run.
 cleanup_attach_probe() {
-  osascript -e "tell application \"Mail\" to delete (every message of mailbox \"Drafts\" of account \"$1\" whose subject contains \"$attach_subject\")" >/dev/null 2>&1 || true
+  remove_drafts_matching "$1" "$attach_subject"
   rm -f "$attach_file"
 }
 
@@ -119,3 +143,82 @@ if [ -n "$first_acc" ]; then
   warn_if_probe_left "$first_acc"
   trap - EXIT
 fi
+
+# Cc, Bcc, sender, and the save that used to be skipped.
+# Before v0.4.0 `save` sat inside the attachment branch, so a draft with no attachment was
+# never written to Drafts — it lived only as an unsaved window, and with visible=false there
+# was no window to save it from. This probe carries no attachment on purpose.
+hdr_subject="smoke_mail header probe"
+
+cleanup_hdr_probe() {
+  remove_drafts_matching "$1" "$hdr_subject"
+}
+
+warn_if_hdr_probe_left() {
+  local left
+  left="$(osascript -e "tell application \"Mail\" to get count of (every message of mailbox \"Drafts\" of account \"$1\" whose subject contains \"$hdr_subject\")" 2>/dev/null || echo 0)"
+  if [ "${left:-0}" != "0" ]; then
+    echo "smoke_mail: WARNING - could not remove the probe draft \"$hdr_subject\" from $1/Drafts; delete it by hand." >&2
+  fi
+}
+
+if [ -n "$first_acc" ]; then
+  cleanup_hdr_probe "$first_acc"
+  trap 'cleanup_hdr_probe "$first_acc"; warn_if_hdr_probe_left "$first_acc"' EXIT
+
+  own_addr="$(osascript "$ROOT_DIR/scripts/applescripts/account/addresses.applescript" "$first_acc" 2>/dev/null | head -1)"
+  [ -n "$own_addr" ] || { echo "smoke_mail: account $first_acc reports no send addresses." >&2; exit 1; }
+
+  hdr_json="$("$ROOT_DIR/scripts/commands/message/create.sh" \
+    --cc "cc-one@example.invalid, cc-two@example.invalid" \
+    --bcc "bcc@example.invalid" \
+    --from "$own_addr" \
+    "$first_acc" "nobody@example.invalid" "$hdr_subject" "probe" false 2>&1)" \
+    || { echo "smoke_mail: create with headers failed: $hdr_json" >&2; exit 1; }
+  printf '%s\n' "$hdr_json" | "$JQ_BIN" -e '.cc != "" and .bcc != "" and .from != ""' >/dev/null \
+    || { echo "smoke_mail: create did not echo cc/bcc/from." >&2; exit 1; }
+
+  # The regression that matters: it must exist in Drafts at all.
+  saved="$(osascript -e "tell application \"Mail\" to get count of (every message of mailbox \"Drafts\" of account \"$first_acc\" whose subject contains \"$hdr_subject\")" 2>/dev/null || echo 0)"
+  [ "${saved:-0}" != "0" ] \
+    || { echo "smoke_mail: an attachment-less draft was not saved to Drafts." >&2; exit 1; }
+
+  hdr_actual="$(osascript -e "tell application \"Mail\"
+    set m to item 1 of (messages of mailbox \"Drafts\" of account \"$first_acc\" whose subject contains \"$hdr_subject\")
+    set o to (sender of m) & \"|\"
+    repeat with r in (cc recipients of m)
+      set o to o & (address of r) & \" \"
+    end repeat
+    set o to o & \"|\"
+    repeat with r in (bcc recipients of m)
+      set o to o & (address of r) & \" \"
+    end repeat
+    return o
+  end tell" 2>/dev/null || true)"
+  case "$hdr_actual" in
+    *"cc-one@example.invalid"*"cc-two@example.invalid"*) ;;
+    *) echo "smoke_mail: both Cc addresses did not reach the draft (got: $hdr_actual)" >&2; exit 1 ;;
+  esac
+  case "$hdr_actual" in
+    *"bcc@example.invalid"*) ;;
+    *) echo "smoke_mail: the Bcc address did not reach the draft (got: $hdr_actual)" >&2; exit 1 ;;
+  esac
+  case "$hdr_actual" in
+    "$own_addr"*) ;;
+    *) echo "smoke_mail: --from did not set the sender (got: $hdr_actual)" >&2; exit 1 ;;
+  esac
+
+  # A sender the account cannot send as must be refused before Mail is involved,
+  # because Mail silently falls back to the account default instead of failing.
+  if "$ROOT_DIR/scripts/commands/message/create.sh" --from "not-mine@example.invalid" \
+      "$first_acc" "nobody@example.invalid" "$hdr_subject" "probe" false >/dev/null 2>&1; then
+    echo "smoke_mail: a sender outside the account was accepted." >&2
+    exit 1
+  fi
+
+  cleanup_hdr_probe "$first_acc"
+  warn_if_hdr_probe_left "$first_acc"
+  trap - EXIT
+fi
+
+echo "smoke_mail: headers ok"

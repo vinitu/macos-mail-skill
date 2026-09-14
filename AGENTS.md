@@ -25,6 +25,7 @@ This repo stores a skill for macOS Mail.app integration.
 - `scripts/commands/_lib/common.sh`: shared shell helpers, including `resolve_index` / `resolve_index_soft` and `resolve_attachments_or_error`.
 - `scripts/commands/_lib/emlx.sh`: maps an Envelope Index ROWID to the RFC Message-ID by reading the on-disk `.emlx`. This is what lets a `search.sh` id be used with the commands that take an id.
 - `scripts/commands/account/`: `list.sh`, `get.sh`, `exists.sh`, `check-mail.sh`.
+- `scripts/applescripts/account/addresses.applescript`: the addresses an account may send as. `common.sh` wraps it as `account_addresses_raw` / `sender_allowed_or_error`, which is how `create.sh --from` refuses an identity the account does not own.
 - `scripts/commands/mailbox/`: `list.sh`, `get.sh`, `count.sh`, `exists.sh`.
 - `scripts/commands/message/`: `list.sh`, `get.sh`, `search.sh`, `exists.sh`, `create.sh`, `send.sh`, `reply.sh`, `forward.sh`, `move.sh`, `delete.sh`, `mark-read.sh`, `mark-unread.sh`, `flag.sh`, `unflag.sh`, `extract-name.sh`, `extract-address.sh`.
 - `scripts/commands/signature/list.sh`, `scripts/commands/viewer/inbox.sh`, `scripts/commands/import/mailbox.sh`, `scripts/commands/url/mailto.sh`.

@@ -181,6 +181,22 @@ mailbox_exists_or_error() {
 # Validate attachment paths and expose them as absolute POSIX paths in RESOLVED_ATTACHMENTS.
 # Mail attaches by file path, so a relative path or a directory fails inside AppleScript with a
 # generic error; catching it here gives the caller a usable message instead.
+# Addresses the account is allowed to send from, one per line.
+account_addresses_raw() {
+  capture_osascript "$APPLETS_DIR/account/addresses.applescript" "$1"
+}
+
+# Refuse a sender the account cannot actually send as. Mail silently falls back to
+# the account default, so a typo would send from the wrong identity without a word.
+sender_allowed_or_error() {
+  local account_name="$1" sender="$2" addresses
+  [[ -z "$sender" ]] && return 0
+  addresses="$(account_addresses_raw "$account_name")"
+  if ! printf '%s\n' "$addresses" | grep -Fixq "$sender"; then
+    fail "Sender $sender is not an address of account $account_name. Available: $(printf '%s' "$addresses" | tr '\n' ' ')"
+  fi
+}
+
 resolve_attachments_or_error() {
   RESOLVED_ATTACHMENTS=()
   local p abs
