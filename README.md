@@ -73,9 +73,9 @@ Message:
 - `scripts/commands/message/search.sh`
 - `scripts/commands/message/search-global.sh`
 - `scripts/commands/message/exists.sh`
-- `scripts/commands/message/create.sh` — draft; takes attachment paths after `visible`
+- `scripts/commands/message/create.sh` — draft; `--cc`, `--bcc`, `--from` before the positionals, attachment paths after `visible`
 - `scripts/commands/message/send.sh`
-- `scripts/commands/message/reply.sh` — draft reply; takes attachment paths after `visible`
+- `scripts/commands/message/reply.sh` — draft reply; `--cc`, `--bcc`, `--reply-all` before the positionals, attachment paths after `visible`
 - `scripts/commands/message/forward.sh`
 - `scripts/commands/message/move.sh`
 - `scripts/commands/message/delete.sh`

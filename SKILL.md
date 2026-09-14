@@ -119,6 +119,33 @@ argument past `visible` is one attachment, and each must be an existing readable
 path or a directory is rejected before Mail is touched. The command returns the resolved absolute
 paths in `attachments`. `send.sh` and `forward.sh` do not take attachments.
 
+**Cc, Bcc and the sender**: `create.sh` takes `--cc`, `--bcc` and `--from`; `reply.sh` takes
+`--cc`, `--bcc` and `--reply-all`. They come **before** the positional arguments, so every existing
+call keeps working. `--cc` and `--bcc` accept a comma-separated list.
+
+```bash
+scripts/commands/message/create.sh --cc "a@example.com, b@example.com" --bcc "c@example.com" \
+  --from "me@example.com" "iCloud" "to@example.com" "Subject" "Body" false
+scripts/commands/message/reply.sh --reply-all --cc "extra@example.com" \
+  "iCloud" "INBOX" "<msg-id@example.com>" "Thanks." false
+```
+
+Three things this exists to prevent:
+
+- **A Cc cannot be added afterwards.** `make new cc recipient` against a draft that is already
+  saved fails with `AppleEvent handler failed (-10000)`, so "draft it now, add the Cc later" only
+  works if a human does it in Mail's own UI. Pass the recipients at creation time.
+- **`--from` is checked against the account.** An account can send as several addresses, and
+  without `--from` Mail uses the **first** one, which is not always the one correspondence uses.
+  An address the account cannot send as is rejected before Mail is touched; Mail itself would
+  silently fall back to the default.
+- **Recipients are verified, not assumed.** Mail drops a recipient every few runs when they are
+  added in a loop — measured at 2 of 5 runs losing one of three Cc addresses. The backend re-adds
+  what is missing and **errors out** rather than hand back a draft that quietly lost someone.
+
+A draft is now always saved, with or without attachments. Before v0.4.0 the `save` sat inside the
+attachment branch, so a body-only draft existed as an unsaved window only.
+
 Both searches use the local Mail database (SQLite) — fast even on mailboxes with tens of thousands of messages. `search.sh` filters by account and mailbox (optional limit, default 1000); `search-global.sh` searches across **all accounts and mailboxes** (default limit 50).
 
 Create, send, and reply:
