@@ -75,7 +75,7 @@ Message:
 - `scripts/commands/message/exists.sh`
 - `scripts/commands/message/create.sh` — draft; `--cc`, `--bcc`, `--from` before the positionals, attachment paths after `visible`
 - `scripts/commands/message/send.sh`
-- `scripts/commands/message/reply.sh` — draft reply; `--cc`, `--bcc`, `--reply-all` before the positionals, attachment paths after `visible`
+- `scripts/commands/message/reply.sh` — draft reply that quotes the original (`--no-quote` to skip); `--cc`, `--bcc`, `--reply-all` before the positionals, attachment paths after `visible`
 - `scripts/commands/message/forward.sh`
 - `scripts/commands/message/move.sh`
 - `scripts/commands/message/delete.sh`
