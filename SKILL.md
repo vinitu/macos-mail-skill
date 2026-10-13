@@ -130,6 +130,13 @@ scripts/commands/message/reply.sh --reply-all --cc "extra@example.com" \
   "iCloud" "INBOX" "<msg-id@example.com>" "Thanks." false
 ```
 
+**The original is quoted.** `reply.sh` puts the original message under the body, as
+`On 13 Oct 2026, at 2:34 PM, Name <addr> wrote:` followed by the original with `> ` in front of
+every line, so the draft is a real reply and not a bare note. Mail does not fill the quote in for a
+scripted reply (its `content` is empty), so the command builds it. Pass `--no-quote` to leave it
+out; the JSON then says `"quoted": false`. If the original cannot be read, the reply is still
+created, without a quote.
+
 Three things this exists to prevent:
 
 - **A Cc cannot be added afterwards.** `make new cc recipient` against a draft that is already
@@ -159,6 +166,7 @@ scripts/commands/message/send.sh "person@example.com" "Hello" "Ready to send"
 scripts/commands/message/reply.sh "iCloud" "INBOX" "<msg-id@example.com>" "Thanks for your message."
 scripts/commands/message/reply.sh "iCloud" "INBOX" "<msg-id@example.com>" "Thanks for your message." false
 scripts/commands/message/reply.sh "iCloud" "INBOX" "<msg-id@example.com>" "Documents attached." false /abs/path/docs.pdf
+scripts/commands/message/reply.sh --no-quote "iCloud" "INBOX" "<msg-id@example.com>" "Short answer, no quote."
 scripts/commands/message/forward.sh "iCloud" "INBOX" "<msg-id@example.com>"
 ```
 
