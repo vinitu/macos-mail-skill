@@ -7,19 +7,22 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../_lib/common.sh"
 
 usage() {
-  echo "Usage: $(basename "$0") [--cc <addrs>] [--bcc <addrs>] [--reply-all] [--no-quote] <account-name> <mailbox-name> <message-id> <reply-body> [visible] [attachment...]" >&2
+  echo "Usage: $(basename "$0") [--cc <addrs>] [--bcc <addrs>] [--reply-all] [--to <addrs>] [--no-quote] <account-name> <mailbox-name> <message-id> <reply-body> [visible] [attachment...]" >&2
   echo "  --cc/--bcc take a comma-separated list. --reply-all copies every original recipient." >&2
   echo "  The original message is quoted under the body; --no-quote leaves it out." >&2
+  echo "  --to replaces the recipients of the reply, for a mail that asks for the answer at another address." >&2
 }
 
 cc_addresses=""
 bcc_addresses=""
 reply_all="false"
 quote="true"
+to_addresses=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --cc)  [[ $# -ge 2 ]] || { usage; fail "--cc needs a value"; };  cc_addresses="$2";  shift 2 ;;
     --bcc) [[ $# -ge 2 ]] || { usage; fail "--bcc needs a value"; }; bcc_addresses="$2"; shift 2 ;;
+    --to)  [[ $# -ge 2 ]] || { usage; fail "--to needs a value"; };  to_addresses="$2";  shift 2 ;;
     --reply-all) reply_all="true"; shift ;;
     --no-quote) quote="false"; shift ;;
     --) shift; break ;;
@@ -55,7 +58,7 @@ esac
 resolve_attachments_or_error "${attachments[@]+"${attachments[@]}"}"
 
 capture_osascript "$APPLETS_DIR/message/reply.applescript" \
-  "$account_name" "$mailbox_name" "$index" "$reply_body" "$cc_addresses" "$bcc_addresses" "$reply_all" "$visible" "$quote" \
+  "$account_name" "$mailbox_name" "$index" "$reply_body" "$cc_addresses" "$bcc_addresses" "$reply_all" "$visible" "$quote" "$to_addresses" \
   "${RESOLVED_ATTACHMENTS[@]+"${RESOLVED_ATTACHMENTS[@]}"}" >/dev/null
 ensure_jq
 "$JQ_BIN" -nc \
@@ -68,6 +71,7 @@ ensure_jq
   --arg reply_all "$reply_all" \
   --arg visible "$visible" \
   --arg quote "$quote" \
+  --arg to "$to_addresses" \
   --args \
-  '{created: true, account: $account, mailbox: $mailbox, index: $index, body: $body, cc: $cc, bcc: $bcc, reply_all: ($reply_all == "true"), visible: ($visible == "true" or $visible == "1"), quoted: ($quote == "true"), attachments: $ARGS.positional}' \
+  '{created: true, account: $account, mailbox: $mailbox, index: $index, body: $body, cc: $cc, bcc: $bcc, to: $to, reply_all: ($reply_all == "true"), visible: ($visible == "true" or $visible == "1"), quoted: ($quote == "true"), attachments: $ARGS.positional}' \
   "${RESOLVED_ATTACHMENTS[@]+"${RESOLVED_ATTACHMENTS[@]}"}"

@@ -130,12 +130,24 @@ scripts/commands/message/reply.sh --reply-all --cc "extra@example.com" \
   "iCloud" "INBOX" "<msg-id@example.com>" "Thanks." false
 ```
 
+**A reply to another address.** A mail from a system mailbox (`no-reply@…`, a rental or ticket system)
+often says "answer to person@company". `reply.sh --to "person@company"` replaces the recipients Mail
+chose with that list; the JSON carries `"to"`. The reply keeps its subject, its quote and its
+`In-Reply-To`, so it still threads with the original.
+
+```bash
+scripts/commands/message/reply.sh --to "person@example.com" \
+  "iCloud" "INBOX" "<msg-id@example.com>" "Thanks, I will continue the lease." false
+```
+
 **The original is quoted.** `reply.sh` puts the original message under the body, as
 `On 13 Oct 2026, at 2:34 PM, Name <addr> wrote:` followed by the original with `> ` in front of
 every line, so the draft is a real reply and not a bare note. Mail does not fill the quote in for a
 scripted reply (its `content` is empty), so the command builds it. Pass `--no-quote` to leave it
 out; the JSON then says `"quoted": false`. If the original cannot be read, the reply is still
-created, without a quote.
+created, without a quote. The quote is plain text with `> `; Mail's own blue-bar quote cannot be
+built from AppleScript (`content` is empty for a scripted reply, and inserting text above it clears the
+quoted block).
 
 Three things this exists to prevent:
 
