@@ -1,14 +1,16 @@
 -- Reply to a message.
--- argv: account mailbox index replyBody cc bcc replyAll visible quote [attachment...]
+-- argv: account mailbox index replyBody cc bcc replyAll visible quote to [attachment...]
 -- `cc` and `bcc` may be empty strings and accept a comma-separated list.
+-- `to` may be an empty string; otherwise it is a comma-separated list that replaces the
+-- recipients Mail chose for the reply (for a mail that asks for the answer at another address).
 -- `replyAll` is "true"/"1" to copy every original recipient.
 -- `quote` is "true"/"1" to put the original message under the reply body, as
 -- "On <date>, <sender> wrote:" followed by the original with "> " in front of each line.
 -- Mail does not fill the quote in for a scripted reply (its `content` is empty), so it is
 -- built here from the original message.
 on run argv
-	if (count of argv) < 9 then
-		return "Usage: reply.applescript <account> <mailbox> <index> <replyBody> <cc> <bcc> <replyAll> <visible> <quote> [attachment...]"
+	if (count of argv) < 10 then
+		return "Usage: reply.applescript <account> <mailbox> <index> <replyBody> <cc> <bcc> <replyAll> <visible> <quote> <to> [attachment...]"
 	end if
 	set accName to item 1 of argv
 	set mbName to item 2 of argv
@@ -20,10 +22,11 @@ on run argv
 	set showWin to true
 	if item 8 of argv is "false" or item 8 of argv is "0" then set showWin to false
 	set withQuote to (item 9 of argv is "true" or item 9 of argv is "1")
+	set toList to my splitAddresses(item 10 of argv)
 
 	tell application "Mail"
 		set m to message idx of mailbox mbName of account accName
-		set replyMsg to reply m with opening window reply to all replyAll
+		set replyMsg to reply m opening window showWin reply to all replyAll
 		set fullBody to replyBody
 		if withQuote then
 			set quoteText to my buildQuote(m)
@@ -31,6 +34,10 @@ on run argv
 		end if
 		set content of replyMsg to fullBody
 		set visible of replyMsg to showWin
+		if (count of toList) > 0 then
+			-- Replace Mail's own recipients: add the new ones first, then drop every other.
+			my replaceTo(replyMsg, toList)
+		end if
 		-- Same flakiness as create.applescript: Mail drops a recipient every few runs when
 		-- they are added in a loop. Add, verify, re-add, and fail loudly rather than send a
 		-- reply that quietly lost a Cc.
@@ -44,8 +51,8 @@ on run argv
 			if not my present(replyMsg, a as text, "bcc") then set missingAddrs to missingAddrs & "bcc:" & (a as text) & " "
 		end repeat
 		if missingAddrs is not "" then error "Mail did not accept every recipient: " & missingAddrs
-		if (count of argv) ≥ 10 then
-			repeat with i from 10 to (count of argv)
+		if (count of argv) ≥ 11 then
+			repeat with i from 11 to (count of argv)
 				set p to item i of argv
 				tell content of replyMsg
 					make new attachment with properties {file name:(POSIX file p)} at after the last paragraph
@@ -94,6 +101,33 @@ on buildQuote(m)
 	end repeat
 	return out
 end buildQuote
+
+-- Make `addrList` the only To recipients of the reply. Recipients are addressed as
+-- `to recipient i` (not `item i of to recipients`, which raises -1728 once the list changed),
+-- and removed from the back so the indexes stay valid.
+on replaceTo(msgRef, addrList)
+	tell application "Mail"
+		repeat with a in addrList
+			set found to false
+			repeat with i from 1 to count of to recipients of msgRef
+				if ((address of (to recipient i of msgRef)) as text) is (a as text) then set found to true
+			end repeat
+			if not found then tell msgRef to make new to recipient at end of to recipients with properties {address:(a as text)}
+		end repeat
+		repeat with i from (count of to recipients of msgRef) to 1 by -1
+			set addr to (address of (to recipient i of msgRef)) as text
+			if addrList does not contain addr then delete (to recipient i of msgRef)
+		end repeat
+		set remaining to {}
+		repeat with i from 1 to count of to recipients of msgRef
+			set end of remaining to ((address of (to recipient i of msgRef)) as text)
+		end repeat
+		repeat with a in addrList
+			if remaining does not contain (a as text) then error "Mail did not accept the To recipient " & (a as text)
+		end repeat
+		if (count of remaining) is not (count of addrList) then error "Mail kept an unexpected To recipient: " & (remaining as text)
+	end tell
+end replaceTo
 
 -- Duplicated from create.applescript on purpose: this repo has no AppleScript library
 -- loading, and a runtime `load script` would add a path dependency to every command.
